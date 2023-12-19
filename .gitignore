@@ -1,0 +1,8 @@
+VTS_LOG_commands.txt
+*ipynb_checkpoints*
+*snakemake*
+.done
+*.pyc
+*snakejob*
+*.mcr
+Rplots.pdf
