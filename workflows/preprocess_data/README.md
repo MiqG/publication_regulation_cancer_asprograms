@@ -1,0 +1,16 @@
+- `perturbations_singlecell`
+    - `preprocess_scperturb`
+    
+- `sf_perturbations_bulk`
+    - `preprocess_encorekd`
+    - `preprocess_encoreko`
+    - `diff_tpm_encore`
+    - `delta_psi_encore`
+    - `prepare_ground_truth_pert_dpsi`
+    - `prepare_ground_truth_pert_logFCtpm`
+    - `preprocess_ena_splicing_factors`
+    - `delta_psi_ena_splicing_factors`
+    - `diff_tpm_ena_splicing_factors`
+    - `prepare_ground_truth_pert_dpsi_ena_splicing_factors`
+    - `prepare_ground_truth_pert_logFCtpm_ena_splicing_factors`
+    - `figures_eda`
