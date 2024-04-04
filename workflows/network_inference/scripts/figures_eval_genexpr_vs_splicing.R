@@ -13,48 +13,6 @@ require(scattermore)
 require(extrafont)
 
 # variables
-REGULON_SETS = c(
-    'aracne_regulons_development',
-    'mlr_regulons_development',
-    'experimentally_derived_regulons_pruned',
-    'aracne_and_experimental_regulons',
-    'mlr_and_experimental_regulons',
-    'aracne_and_mlr_regulons',
-    'top100_experimentally_derived_regulons_pruned',
-    'top90_experimentally_derived_regulons_pruned',
-    'top80_experimentally_derived_regulons_pruned',
-    'top70_experimentally_derived_regulons_pruned',
-    'top60_experimentally_derived_regulons_pruned',
-    'top50_experimentally_derived_regulons_pruned',
-    'top40_experimentally_derived_regulons_pruned'
-)
-
-SETS_MAIN = c(
-    'aracne_regulons_development',
-    'mlr_regulons_development',
-    'experimentally_derived_regulons_pruned'
-)
-
-SETS_ROBUSTNESS = c(
-    'top40_experimentally_derived_regulons_pruned',
-    'top50_experimentally_derived_regulons_pruned',
-    'top60_experimentally_derived_regulons_pruned',
-    'top70_experimentally_derived_regulons_pruned',
-    'top80_experimentally_derived_regulons_pruned',
-    'top90_experimentally_derived_regulons_pruned',
-    'top100_experimentally_derived_regulons_pruned',
-    'experimentally_derived_regulons_pruned'
-)
-
-SETS_LIKELIHOOD = c(
-    'aracne_and_experimental_regulons',
-    'mlr_and_experimental_regulons',
-    'experimentally_derived_regulons_pruned'
-)
-
-SETS_MOR = c(
-    'aracne_and_mlr_regulons'
-)
 
 # formatting
 LINE_SIZE = 0.25
@@ -66,6 +24,7 @@ PAL_EVAL_TYPE = c(
     "random" = "lightgrey",
     "real" = "orange"
 )
+PAL_DARK = "brown"
 
 # Development
 # -----------
@@ -73,25 +32,25 @@ PAL_EVAL_TYPE = c(
 # RAW_DIR = file.path(ROOT,'data','raw')
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
-# RESULTS_DIR = file.path(ROOT,"results","regulon_inference")
+# RESULTS_DIR = file.path(ROOT,"results","network_inference")
 # evaluation_ex_file = file.path(RESULTS_DIR,"files","regulon_evaluation_scores","merged-EX.tsv.gz")
 # evaluation_genexpr_file = file.path(RESULTS_DIR,"files","regulon_evaluation_scores","merged-genexpr.tsv.gz")
-# figs_dir = file.path(RESULTS_DIR,"figures","regulon_evaluation")
+# protein_activity_ex_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-EX.tsv.gz")
+# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz")
+# figs_dir = file.path(RESULTS_DIR,"figures","network_evaluation")
 
 ##### FUNCTIONS #####
-plot_evaluation = function(evaluation, omic_type_oi){
+plot_evaluation = function(evaluation, protein_activity_example){
     plts = list()
     
     X = evaluation %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, n_tails, regulon_set_id, pert_type_lab, regulator) %>%
+        group_by(omic_type, eval_direction, eval_type, regulon_set, 
+                 n_tails, regulon_set_id, pert_type_lab, regulator) %>%
         summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
-        ungroup() %>%
-        filter(omic_type==omic_type_oi)
+        ungroup() 
     
     # main networks
     plts[["evaluation-ranking_perc_vs_regulon_set_vs_pert_type-main-box"]] = X %>%
-        filter(regulon_set %in% SETS_MAIN) %>%
-        filter(n_tails=="two") %>%
         ggplot(aes(x=pert_type_lab, y=ranking_perc, 
                    group=interaction(pert_type_lab, eval_type))) +
         geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
@@ -107,23 +66,20 @@ plot_evaluation = function(evaluation, omic_type_oi){
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
-        labs(x="Validation Perturbation", y="Evaluation Score", fill="Inference Type")
+        labs(x="Validation Perturbation", y="Recall", fill="Inference Type")
 
     
     plts[["evaluation-ranking_perc_vs_regulon_set-main-box"]] = X %>%
-        filter(regulon_set %in% SETS_MAIN) %>%
-        filter(n_tails=="two") %>%
         group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
         summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
         ungroup() %>%
-        mutate(regulon_set = factor(regulon_set, levels=SETS_MAIN)) %>%
-        ggplot(aes(x=regulon_set, y=ranking_perc, 
+        ggplot(aes(x=omic_type, y=ranking_perc, 
                    group=interaction(regulon_set, eval_type))) +
         geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
                      position=position_dodge(0.5)) +
         fill_palette(PAL_EVAL_TYPE) + 
         theme_pubr() +
-        facet_wrap(~omic_type+eval_direction, ncol=2) +
+        facet_wrap(~eval_direction, ncol=2) +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         geom_text(
             aes(y = -0.1, label=label), 
@@ -132,126 +88,61 @@ plot_evaluation = function(evaluation, omic_type_oi){
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
-        labs(x="Regulon Set", y="Evaluation Score", fill="Inference Type")
+        labs(x="Regulon Set", y="Recall", fill="Inference Type")
     
+    # correlation activity SF-exon vs SF-gene within sample
+    X = protein_activity_example %>%
+        group_by(PERT_ENSEMBL) %>%
+        summarize(
+            correlation_pearson = cor(activity_ex, activity_genexpr, method="pearson", use="pairwise.complete.obs")
+        ) %>%
+        ungroup()
     
-    # robustness networks
-    plts[["evaluation-ranking_perc_vs_regulon_set-robustness-box"]] = X %>%
-        filter(regulon_set %in% SETS_ROBUSTNESS) %>%
-        filter(n_tails=="two") %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
-        summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
-        ungroup() %>%
-        mutate(regulon_set = factor(regulon_set, levels=SETS_ROBUSTNESS)) %>%
-        ggplot(aes(x=regulon_set, y=ranking_perc, 
-                   group=interaction(regulon_set, eval_type))) +
-        geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
-                     position=position_dodge(0.5)) +
-        fill_palette(PAL_EVAL_TYPE) + 
-        theme_pubr() +
-        facet_wrap(~omic_type+eval_direction, ncol=2) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+    plts[["evaluation-activity_ex_vs_genexpr-within-violin"]] = X %>%
+        pivot_longer(-PERT_ENSEMBL, names_to="correlation_type", values_to="correlation") %>%
+        ggviolin(x="correlation_type", y="correlation", fill="orange", color=NA) + 
+        geom_boxplot(width=0.5, outlier.size=0.1, fill=NA) + 
         geom_text(
-            aes(y = -0.1, label=label), 
+            aes(y = 0, label=label), 
             . %>% 
-            count(regulon_set, eval_direction, eval_type, omic_type) %>% 
+            count(correlation_type) %>% 
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
-        labs(x="Regulon Set", y="Evaluation Score", fill="Inference Type")
+        labs(x="Correlation Type", y="Correlation")
     
-    # likelihood networks
-    plts[["evaluation-ranking_perc_vs_regulon_set-likelihood-box"]] = X %>%
-        filter(regulon_set %in% SETS_LIKELIHOOD) %>%
-        filter(n_tails=="two") %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
-        summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
-        ungroup() %>%
-        mutate(regulon_set = factor(regulon_set, levels=SETS_LIKELIHOOD)) %>%
-        ggplot(aes(x=regulon_set, y=ranking_perc, 
-                   group=interaction(regulon_set, eval_type))) +
-        geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
-                     position=position_dodge(0.5)) +
-        fill_palette(PAL_EVAL_TYPE) + 
-        theme_pubr() +
-        facet_wrap(~omic_type+eval_direction, ncol=2) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        geom_text(
-            aes(y = -0.1, label=label), 
-            . %>% 
-            count(regulon_set, eval_direction, eval_type, omic_type) %>% 
-            mutate(label=paste0("n=",n)),
-            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
-        ) +
-        labs(x="Regulon Set", y="Evaluation Score", fill="Inference Type")
-    
-    # mor networks
-    plts[["evaluation-ranking_perc_vs_regulon_set-mor-box"]] = X %>%
-        filter(regulon_set %in% SETS_MOR) %>%
-        filter(n_tails=="two") %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
-        summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
-        ungroup() %>%
-        mutate(regulon_set = factor(regulon_set, levels=SETS_MOR)) %>%
-        ggplot(aes(x=regulon_set, y=ranking_perc, 
-                   group=interaction(regulon_set, eval_type))) +
-        geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
-                     position=position_dodge(0.5)) +
-        fill_palette(PAL_EVAL_TYPE) + 
-        theme_pubr() +
-        facet_wrap(~omic_type+eval_direction, ncol=2) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        geom_text(
-            aes(y = -0.1, label=label), 
-            . %>% 
-            count(regulon_set, eval_direction, eval_type, omic_type) %>% 
-            mutate(label=paste0("n=",n)),
-            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
-        ) +
-        labs(x="Regulon Set", y="Evaluation Score", fill="Inference Type")
-    
-    # one-tailed networks
-    plts[["evaluation-ranking_perc_vs_regulon_set-main_one_tailed-box"]] = X %>%
-        filter(regulon_set %in% SETS_MAIN) %>%
-        filter(n_tails=="one") %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
-        summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
-        ungroup() %>%
-        mutate(regulon_set = factor(regulon_set, levels=SETS_MAIN)) %>%
-        ggplot(aes(x=regulon_set, y=ranking_perc, 
-                   group=interaction(regulon_set, eval_type))) +
-        geom_boxplot(aes(fill=eval_type), width=0.5, outlier.size=0.1, 
-                     position=position_dodge(0.5)) +
-        fill_palette(PAL_EVAL_TYPE) + 
-        theme_pubr() +
-        facet_wrap(~omic_type+eval_direction, ncol=2) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        geom_text(
-            aes(y = -0.1, label=label), 
-            . %>% 
-            count(regulon_set, eval_direction, eval_type, omic_type) %>% 
-            mutate(label=paste0("n=",n)),
-            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
-        ) +
-        labs(x="Regulon Set", y="Evaluation Score", fill="Inference Type")
-    
-    names(plts) = sprintf("%s-%s", omic_type_oi, names(plts))
+    sample_oi = X %>% slice_min(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
+    plts[["evaluation-activity_ex_vs_genexpr-worst-scatter"]] = protein_activity_example %>%
+        filter(PERT_ENSEMBL == sample_oi) %>%
+        drop_na() %>%
+        ggscatter(x="activity_ex", y="activity_genexpr", size=1, alpha=0.5, color=PAL_DARK) +
+        stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
+        theme(aspect.ratio=1) +
+        labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
+        
+    sample_oi = X %>% slice_max(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
+    plts[["evaluation-activity_ex_vs_genexpr-best-scatter"]] = protein_activity_example %>%
+        filter(PERT_ENSEMBL == sample_oi) %>%
+        drop_na() %>%
+        ggscatter(x="activity_ex", y="activity_genexpr", size=1, alpha=0.5, color=PAL_DARK) +
+        stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
+        theme(aspect.ratio=1) +
+        labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
     
     return(plts)
 }
 
 
-make_plots = function(evaluation){
+make_plots = function(evaluation, protein_activity_example){
     plts = list(
-        plot_evaluation(evaluation, "EX"),
-        plot_evaluation(evaluation, "genexpr")
+        plot_evaluation(evaluation, protein_activity_example)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 
-make_figdata = function(evaluation){
+make_figdata = function(evaluation, protein_activity_example){
     figdata = list(
         "regulon_evaluation" = list(
             "evaluation" = evaluation
@@ -277,20 +168,12 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 
 save_plots = function(plts, figs_dir){
-    omic_types = c("EX","genexpr")
-    for (omic_type_oi in omic_types){
-        # main
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set_vs_pert_type-main-box", omic_type_oi), '.pdf', figs_dir, width=6.5, height=12)
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set-main-box", omic_type_oi), '.pdf', figs_dir, width=7, height=7)
-        # robustness
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set-robustness-box", omic_type_oi), '.pdf', figs_dir, width=12, height=7)
-        # likelihood
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set-likelihood-box", omic_type_oi), '.pdf', figs_dir, width=7, height=7)
-        # mor
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set-mor-box", omic_type_oi), '.pdf', figs_dir, width=3.5, height=7)
-        # one-tailed
-        save_plt(plts, sprintf("%s-evaluation-ranking_perc_vs_regulon_set-main_one_tailed-box", omic_type_oi), '.pdf', figs_dir, width=7, height=7)
-    }
+    # main
+    save_plt(plts, "evaluation-ranking_perc_vs_regulon_set_vs_pert_type-main-box", '.pdf', figs_dir, width=7.5, height=12)
+    save_plt(plts, "evaluation-ranking_perc_vs_regulon_set-main-box", '.pdf', figs_dir, width=7, height=7)
+    save_plt(plts, "evaluation-activity_ex_vs_genexpr-within-violin", '.pdf', figs_dir, width=2.5, height=6)
+    save_plt(plts, "evaluation-activity_ex_vs_genexpr-worst-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
+    save_plt(plts, "evaluation-activity_ex_vs_genexpr-best-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
 }
 
 
@@ -314,6 +197,8 @@ parseargs = function(){
     option_list = list( 
         make_option("--evaluation_ex_file", type="character"),
         make_option("--evaluation_genexpr_file", type="character"),
+        make_option("--protein_activity_ex_file", type="character"),
+        make_option("--protein_activity_genexpr_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -327,6 +212,8 @@ main = function(){
     
     evaluation_ex_file = args[["evaluation_ex_file"]]
     evaluation_genexpr_file = args[["evaluation_genexpr_file"]]
+    protein_activity_ex_file = args[["protein_activity_ex_file"]]
+    protein_activity_genexpr_file = args[["protein_activity_genexpr_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
@@ -337,6 +224,8 @@ main = function(){
         read_tsv(evaluation_genexpr_file)
     ) %>%
     bind_rows()
+    protein_activity_ex = read_tsv(protein_activity_ex_file)
+    protein_activity_genexpr = read_tsv(protein_activity_genexpr_file)
     
     # prep
     evaluation = evaluation %>%
@@ -355,11 +244,19 @@ main = function(){
             regulon_set = gsub("-.*","",regulon_set_id)
         )
     
+    protein_activity_example = protein_activity_ex %>%
+        pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_ex") %>%
+        left_join(
+            protein_activity_genexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_genexpr"),
+            by = c("PERT_ENSEMBL","regulator")
+        )
+    
     # plot
-    plts = make_plots(evaluation)
+    plts = make_plots(evaluation, protein_activity_example)
     
     # make figdata
-    figdata = make_figdata(evaluation)
+    figdata = make_figdata(evaluation, protein_activity_example)
     
     # save
     save_plots(plts, figs_dir)

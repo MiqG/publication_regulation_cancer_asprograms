@@ -18,10 +18,16 @@ module download_scperturb:
     snakefile: "download_scperturb.smk"
 use rule * from download_scperturb as scperturb_*
 
+# Rules to download and align CCLE data on cell lines
+module download_and_align_CCLE:
+    snakefile: "download_and_align_CCLE.smk"
+use rule * from download_and_align_CCLE as CCLE_*
+
 rule all:
     input:
         rules.ena_sfs_all.input,
         rules.ENCORE_KO_all.input,
         rules.ENCORE_KD_all.input,
         rules.scperturb_all.input,
+        rules.CCLE_all.input
     default_target: True

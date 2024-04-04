@@ -8,7 +8,7 @@
     
 ## Analysis
 ### Splicing factor activity analysis using single cell perturbation datasets
-1. [ ] Evaluate how well using empirical SF-exon and SF-gene networks recapitulates SF activity
+1. [X] Evaluate how well using empirical SF-exon and SF-gene networks recapitulates SF activity
     - SF-gene networks recapitulate SF-exon activities
     - FIGURES
         - recall SF-exon and SF-gene vs random

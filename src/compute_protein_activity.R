@@ -97,7 +97,7 @@ evaluate_protein_activities = function(protein_activities, eval_labels){
         drop_na()
     
     # Can we gess in which perturbations was a regulator perturbed?
-    evaluation_between_real = X %>%
+    evaluation_across_real = X %>%
         group_by(regulator) %>%
         arrange(-activity) %>% # high score better
         mutate(
@@ -106,11 +106,11 @@ evaluate_protein_activities = function(protein_activities, eval_labels){
         ) %>%
         filter(regulator == PERT_ENSEMBL) %>%
         mutate(
-            eval_direction = "between",
+            eval_direction = "across",
             eval_type = "real"
         )
     
-    evaluation_between_random = X %>%
+    evaluation_across_random = X %>%
         group_by(regulator) %>%
         mutate(activity = sample(activity)) %>%
         arrange(-activity) %>% # high score better
@@ -120,7 +120,7 @@ evaluate_protein_activities = function(protein_activities, eval_labels){
         ) %>%
         filter(regulator == PERT_ENSEMBL) %>%
         mutate(
-            eval_direction = "between",
+            eval_direction = "across",
             eval_type = "random"
         )
     
@@ -153,8 +153,8 @@ evaluate_protein_activities = function(protein_activities, eval_labels){
         )
     
     # merge
-    evaluation = evaluation_between_real %>%
-        bind_rows(evaluation_between_random) %>%
+    evaluation = evaluation_across_real %>%
+        bind_rows(evaluation_across_random) %>%
         bind_rows(evaluation_within_real) %>%
         bind_rows(evaluation_within_random)
     

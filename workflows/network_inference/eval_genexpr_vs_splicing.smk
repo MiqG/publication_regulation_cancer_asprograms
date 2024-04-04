@@ -7,8 +7,10 @@ RAW_DIR = os.path.join(ROOT,"data","raw")
 PREP_DIR = os.path.join(ROOT,"data","prep")
 SRC_DIR = os.path.join(ROOT,"src")
 SUPPORT_DIR = os.path.join(ROOT,"support")
-RESULTS_DIR = os.path.join(ROOT,"results","regulon_inference")
+RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
+
+VIPER_SPLICING_DIR = os.path.join(ROOT,"../../repositories/viper_splicing")
 
 EVENT_TYPES = ["EX"]
 OMIC_TYPES = ["genexpr"] + EVENT_TYPES
@@ -42,21 +44,20 @@ METADATA_FILES = [
     os.path.join(PREP_DIR,"metadata","ENASFS.tsv.gz")
 ]
 
-REGULON_SETS = [
-    "experimentally_derived_regulons_pruned",
-    "aracne_regulons_development",
-    "mlr_regulons_development",
-    "aracne_and_experimental_regulons",
-    "mlr_and_experimental_regulons",
-    "aracne_and_mlr_regulons"
-]
-
-TOP_N = [100, 90, 80, 70, 60, 50, 40]
-ROBUSTNESS_EVAL_SETS = ["top{N}_experimentally_derived_regulons_pruned".format(N=n) for n in TOP_N]
-REGULON_SETS = REGULON_SETS + ROBUSTNESS_EVAL_SETS
+REGULON_DIRS = {
+    "genexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-genexpr"),
+    "EX": os.path.join(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX")
+}
 
 SHADOWS = ["no"] # bug in viper does not allow shadow correction
-N_TAILS = ["one","two"]
+N_TAILS = ["two"]
+
+DATASETS = {
+    "CCLE": {
+        "genexpr": os.path.join(PREP_DIR,"genexpr_tpm","CCLE.tsv.gz"), 
+        "EX": os.path.join(PREP_DIR,"event_psi","CCLE-EX.tsv.gz")
+    }
+}
 
 ##### RULES #####
 rule all:
@@ -66,13 +67,17 @@ rule all:
         
         # evaluate regulons
         ## run
-        expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{regulon_set}-{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz"), regulon_set=REGULON_SETS, dataset=EVAL_DATASETS, omic_type=OMIC_TYPES, shadow=SHADOWS, n_tails=N_TAILS),
+        expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz"), dataset=EVAL_DATASETS, omic_type=OMIC_TYPES, shadow=SHADOWS, n_tails=N_TAILS),
         ## merge
         expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-{omic_type}.tsv.gz"), omic_type=OMIC_TYPES),
         
+        # estimate splicing factor activities in CCLE
+        ## compute signatures within
+        # expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz"), zip, dataset=DATASETS, omic_type=OMIC_TYPES),
+        expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_type}.tsv.gz"), dataset=EVAL_DATASETS, omic_type=OMIC_TYPES),
+        
         # make figures
-        os.path.join(RESULTS_DIR,"figures","regulon_evaluation"),
-        os.path.join(RESULTS_DIR,"figures","regulon_inference")
+        os.path.join(RESULTS_DIR,"figures","network_evaluation")
         
         
 rule make_evaluation_labels:
@@ -119,10 +124,10 @@ rule make_evaluation_labels:
 rule evaluate_regulons:
     input:
         signature = lambda wildcards: PERT_FILES[wildcards.omic_type][wildcards.dataset],
-        regulons = os.path.join(RESULTS_DIR,"files","{regulon_set}-{omic_type}"),
+        regulons = lambda wildcards: REGULON_DIRS[wildcards.omic_type],
         eval_labels = os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels","{dataset}.tsv.gz")
     output:
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{regulon_set}-{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz")
+        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz")
     params:
         script_dir = SRC_DIR,
         shadow = "{shadow}",
@@ -141,7 +146,7 @@ rule evaluate_regulons:
         
 rule combine_evaluations:
     input:
-        evaluations = [os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{regulon_set}-{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz").format(regulon_set=r, dataset=d, omic_type="{omic_type}", shadow=s, n_tails=n) for r in REGULON_SETS for d in EVAL_DATASETS for s in SHADOWS for n in N_TAILS]
+        evaluations = [os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_type}-shadow_{shadow}-{n_tails}_tailed.tsv.gz").format(dataset=d, omic_type="{omic_type}", shadow=s, n_tails=n) for d in EVAL_DATASETS for s in SHADOWS for n in N_TAILS]
     output:
         os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-{omic_type}.tsv.gz")
     params:
@@ -156,34 +161,61 @@ rule combine_evaluations:
         
         print("Done!")
         
-    
-rule figures_regulon_evaluation:
+        
+# rule compute_signature_within:
+#     input:
+#         data = lambda wildcards: DATASETS[wildcards.dataset][wildcards.omic_type]
+#     output:
+#         signature = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz")
+#     run:
+#         import pandas as pd
+        
+#         data = pd.read_table(input.data, index_col=0)
+        
+#         # subtract median
+#         signature = data
+#         signature = signature - signature["ACH-001086"].values.reshape(-1,1)
+#         #signature = signature - signature.median(axis=1).values.reshape(-1,1)
+        
+#         # save
+#         signature.reset_index().to_csv(output.signature, **SAVE_PARAMS)
+        
+#         print("Done!")
+        
+        
+rule compute_protein_activity:
+    input:
+        #signature = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz"),
+        signature = lambda wildcards: PERT_FILES[wildcards.omic_type][wildcards.dataset],
+        regulons_path = lambda wildcards: REGULON_DIRS[wildcards.omic_type]
+    output:
+        os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_type}.tsv.gz")
+    params:
+        script_dir = SRC_DIR
+    shell:
+        """
+        Rscript {params.script_dir}/compute_protein_activity.R \
+                    --signature_file={input.signature} \
+                    --regulons_path={input.regulons_path} \
+                    --output_file={output}
+        """
+        
+        
+rule figures_network_evaluation:
     input:
         evaluation_ex = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-EX.tsv.gz"),
-        evaluation_genexpr = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-genexpr.tsv.gz")
+        evaluation_genexpr = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-genexpr.tsv.gz"),
+        protein_activity_ex = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-EX.tsv.gz"),
+        protein_activity_genexpr = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz")
     output:
-        directory(os.path.join(RESULTS_DIR,"figures","regulon_evaluation"))
+        directory(os.path.join(RESULTS_DIR,"figures","network_evaluation"))
     shell:
         """
-        Rscript scripts/figures_regulon_evaluation.R \
+        Rscript scripts/figures_eval_genexpr_vs_splicing.R \
                     --evaluation_ex_file={input.evaluation_ex} \
                     --evaluation_genexpr_file={input.evaluation_genexpr} \
+                    --protein_activity_ex_file={input.protein_activity_ex} \
+                    --protein_activity_genexpr_file={input.protein_activity_genexpr} \
                     --figs_dir={output}
         """
-        
-        
-rule figures_inference_troubleshooting:
-    input:
-        experimental_pruned_path = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-EX"),
-        aracne_and_experimental_path = os.path.join(RESULTS_DIR,"files","aracne_and_experimental_regulons-EX"),
-        mlr_and_experimental_path = os.path.join(RESULTS_DIR,"files","mlr_and_experimental_regulons-EX")
-    output:
-        directory(os.path.join(RESULTS_DIR,"figures","regulon_inference"))
-    shell:
-        """
-        Rscript scripts/figures_inference_troubleshooting.R \
-                    --experimental_pruned_path={input.experimental_pruned_path} \
-                    --aracne_and_experimental_path={input.aracne_and_experimental_path} \
-                    --mlr_and_experimental_path={input.mlr_and_experimental_path} \
-                    --figs_dir={output}
-        """
+       

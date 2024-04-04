@@ -1,0 +1,1 @@
+- CCLE metadata from DepMap: https://depmap.org/portal/download/all/?releasename=DepMap+Public+22Q2&filename=sample_info.csv

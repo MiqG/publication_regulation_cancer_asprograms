@@ -5,7 +5,7 @@ ROOT = os.path.dirname(os.path.dirname(os.getcwd()))
 RAW_DIR = os.path.join(ROOT,"data","raw")
 PREP_DIR = os.path.join(ROOT,"data","prep")
 SUPPORT_DIR = os.path.join(ROOT,"support")
-RESULTS_DIR = os.path.join(ROOT,"results","network_infrence")
+RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 PERT_SPLICING_FILES = [
@@ -58,7 +58,7 @@ rule make_regulons:
         
         regulators = pd.read_table(input.regulators)
         omic_type = params.omic_type
-        feature_name = "EVENT" if omic_type!="genexpr" else "ENSEMBL"
+        feature_name = "EVENT" if omic_type!="genexpr" else "ENSEMBL_ID"
         value_name = "delta_psi" if omic_type!="genexpr" else "log2fc_tpm"
         
         # prep regulators
@@ -108,7 +108,7 @@ rule make_regulons:
                 X = perts["PERT_ID"].str.split("___", expand=True)
                 X.columns = ["study_accession","cell_line_name","PERT_ENSEMBL"]
                 perts[["study_accession","cell_line_name","PERT_ENSEMBL"]] = X
-                perts["regulator"] = perts["PERT_ID"]
+                perts["regulator"] = perts["PERT_ENSEMBL"]
                 
                 # subset
                 perts = perts.loc[perts["PERT_ENSEMBL"].isin(regulators["ENSEMBL"])].copy()
