@@ -2,6 +2,7 @@
 # ----
 # WE ARE RUNNING METAVIPER!
 
+Sys.setenv(VROOM_CONNECTION_SIZE='1000000')
 require(optparse)
 require(tidyverse)
 require(viper)
