@@ -77,7 +77,7 @@ rule all:
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_type}.tsv.gz"), dataset=EVAL_DATASETS, omic_type=OMIC_TYPES),
         
         # make figures
-        os.path.join(RESULTS_DIR,"figures","network_evaluation")
+        os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing")
         
         
 rule make_evaluation_labels:
@@ -208,7 +208,7 @@ rule figures_network_evaluation:
         protein_activity_ex = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-EX.tsv.gz"),
         protein_activity_genexpr = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz")
     output:
-        directory(os.path.join(RESULTS_DIR,"figures","network_evaluation"))
+        directory(os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing"))
     shell:
         """
         Rscript scripts/figures_eval_genexpr_vs_splicing.R \
