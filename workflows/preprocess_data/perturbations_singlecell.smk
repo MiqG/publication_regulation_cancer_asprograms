@@ -21,46 +21,132 @@ DATASETS = ["K562_essential","K562_gwps","rpe1"]
 ##### RULES #####
 rule all:
     input:
-        # preprocess ReplogleWeissman2022
-        expand(os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}.h5ad"), dataset=DATASETS)
+        # ReplogleWeissman2022
+        ## preprocess
+        expand(os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}.h5ad"), dataset=DATASETS),
+        expand(os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-cell_summary.tsv.gz"), dataset=DATASETS),
+        expand(os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-gene_summary.tsv.gz"), dataset=DATASETS),
+        ## summarize
+        expand(os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-pseudobulk.h5ad"), dataset=DATASETS),
+        ## fold change
+        expand(os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_{dataset}-log2_fold_change_cpm.tsv.gz"), dataset=DATASETS)
         
         
 rule preprocess_scperturb:
     input:
-        adata = os.path.join(DATA_DIR,"scPerturb","ReplogleWeissman2022_{dataset}.h5ad"),
+        adata = os.path.join(RAW_DIR,"scPerturb","ReplogleWeissman2022_{dataset}.h5ad"),
     output:
-        adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}.h5ad")
+        adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}.h5ad"),
+        cell_summary = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-cell_summary.tsv.gz"),
+        gene_summary = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-gene_summary.tsv.gz")
+    resources:
+        memory = 300, # GB
+        runtime = 3600*2 # h
+    run:
+        import scanpy as sc
+        import gc
+        
+        # load
+        adata = sc.read_h5ad(input.adata)
+        gc.collect()
+        
+        # prep
+        ## metadata
+        ### column with gene name and ensembl of perturbed gene
+        adata.obs["PERT_ENSEMBL"] = adata.obs["gene_id"]
+        adata.obs["PERT_GENE"] = adata.obs["gene"]
+        
+        ## gene expression
+        ### use ensembl as gene identifier
+        adata.var["gene_name"] = adata.var.index
+        adata.var = adata.var.set_index("ensembl_id")
+        ### filter out cells
+        adata = adata[adata.obs["ngenes"]>=200,:]
+        ### filter out genes
+        adata = adata[:,adata.var["ncells"]>=3]
+        
+        # save
+        adata.write(output.adata)
+        adata.var.reset_index().to_csv(output.gene_summary, **SAVE_PARAMS)
+        adata.obs.reset_index().to_csv(output.cell_summary, **SAVE_PARAMS)
+        
+        print("Done!")
+        
+        
+rule summarize_genexpr_by_perturbation:
+    input:
+        adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}.h5ad"),
+    output:
+        adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-pseudobulk.h5ad")
+    resources:
+        memory = 300, # GB
+        runtime = 3600*2 # h
+    run:
+        import scanpy as sc
+        import numpy as np
+        from tqdm import tqdm
+        
+        # load
+        adata = sc.read_h5ad(input.adata)
+        
+        # prep
+        ## normalize counts to CPMs
+        adata.X = 1e6 * (adata.X / np.sum(adata.X, axis=0).reshape(1,-1))
+        ## log scale
+        adata.X = np.log2(adata.X + 1)
+        
+        # summarize gene expression by perturbation
+        def summarize_genexpr_perts(adata):
+            conditions = adata.obs["PERT_ENSEMBL"].value_counts()
+            replicated_conditions = conditions.loc[conditions>1]
+            unique_conditions = conditions.loc[conditions==1]
+
+            # add non unique conditions
+            idx = adata.obs["PERT_ENSEMBL"].isin(unique_conditions.index)
+            genexpr = adata[idx,:].to_df()
+            genexpr = genexpr.rename(index=adata[idx,:].obs["PERT_ENSEMBL"].to_dict())
+            
+            # add replicated conditions
+            summarized_genexpr = {}
+            for condition_oi in tqdm(replicated_conditions.index):
+                cells_oi = adata.obs[adata.obs["PERT_ENSEMBL"]==condition_oi].index
+                summarized_genexpr[condition_oi] = adata[cells_oi,:].to_df().mean(axis=0)
+            summarized_genexpr = pd.DataFrame(summarized_genexpr).T
+
+            # prepare outputs
+            summarized_genexpr = pd.concat([summarized_genexpr, genexpr], axis=0)
+
+            return summarized_genexpr
+        
+        genexpr = summarize_genexpr_perts(adata)
+
+        # make adata
+        adata = sc.AnnData(genexpr)
+        
+        # save
+        adata.write(output.adata)
+        
+        print("Done!")
+        
+        
+rule compute_signatures:
+    input:
+        adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-pseudobulk.h5ad")
+    output:
+        signature = os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_{dataset}-log2_fold_change_cpm.tsv.gz")
+    resources:
+        memory = 20, # GB
+        runtime = 3600*2 # h
     run:
         import scanpy as sc
         
         # load
         adata = sc.read_h5ad(input.adata)
         
-        # prep
-        
-        ## metadata
-        ### column with gene name and ensembl of perturbed gene
-        
-        ## gene expression
-        ### filter out cells
-        sc.pp.filter_cells(adata, min_genes=200)
-        ### filter out genes
-        sc.pp.filter_genes(adata, min_cells=3)
-        ### make QC metrics
-        adata.var["mt"] = adata.var["gene_name"].str.startswith("MT-").fillna(False)
-        sc.pp.calculate_qc_metrics(
-            adata, qc_vars=["mt"], percent_top=None, log1p=False, inplace=True
-        )
-        ### normalize counts
-        sc.pp.normalize_total(adata, target_sum=1e4)
-        sc.pp.log1p(adata)
-        ### mark highly variable genes
-        sc.pp.highly_variable_genes(adata, min_mean=0.0125, max_mean=3, min_disp=0.5)
-        
-        ## save as raw attribute up to here
-        adata.raw = adata
+        # compute fold changes
+        adata.X = adata.X - adata["non-targeting"].X.reshape(1,-1)
         
         # save
-        adata.write(output.adata)
+        adata.to_df().T.reset_index().to_csv(output.signature, **SAVE_PARAMS)
         
         print("Done!")
