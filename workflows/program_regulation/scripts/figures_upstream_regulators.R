@@ -5,7 +5,7 @@
 # Script purpose
 # --------------
 
-Sys.setenv(VROOM_CONNECTION_SIZE='1000000')
+Sys.setenv(VROOM_CONNECTION_SIZE='100000000')
 require(optparse)
 require(tidyverse)
 require(ggpubr)
@@ -40,7 +40,7 @@ PAL_FDR_LIGHT = "#DC3220"
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","program_regulation")
 # protein_activity_rpe1_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_rpe1-genexpr.tsv.gz")
-# protein_activity_k562_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_gwps-genexpr.tsv.gz")
+# protein_activity_k562_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-genexpr.tsv.gz")
 # gene_info_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
 # msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
@@ -260,6 +260,25 @@ main = function(){
     gene_info = gene_info %>%
         mutate(PERT_GENE = `Approved symbol`) %>%
         dplyr::select(`Ensembl gene ID`, PERT_GENE)
+
+    protein_activity_k562 = protein_activity_k562 %>%
+        pivot_longer(-regulator, names_to="condition", values_to="activity_k562") %>%
+        left_join(metadata_k562, by="condition") %>%
+        left_join(gene_info, by=c("PERT_ENSEMBL"="Ensembl gene ID"))
+    
+    cancer_program_k562 = cancer_program %>%
+        left_join(
+            protein_activity_k562, 
+            by=c("ENSEMBL"="regulator")
+        ) %>%
+        group_by(driver_type, PERT_ENSEMBL, PERT_GENE, pert_efficiency_fc, condition, n_cells) %>%
+        summarize(activity_k562 = median(activity_k562, na.rm=TRUE)) %>%
+        ungroup() %>%
+        mutate(
+            target_in_cosmic = ifelse(
+                PERT_GENE %in% ontologies[["cosmic"]][["gene"]], "In COSMIC", "Not in COSMIC"
+            )
+        ) 
     
     protein_activity_rpe1 = protein_activity_rpe1 %>%
         pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_rpe1")

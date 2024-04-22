@@ -24,22 +24,30 @@ PERT_GENEXPR_FILES = [
     os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','log2_fold_change_tpm.tsv.gz')
 ]
 
+PERT_SCGENEXPR_FILES = [
+    os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_by_batch-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_by_batch-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+]
+
 PERT_FILES = {
     "EX": PERT_SPLICING_FILES,
-    "genexpr": PERT_GENEXPR_FILES
+    "genexpr": PERT_GENEXPR_FILES,
+    "scgenexpr": PERT_SCGENEXPR_FILES
 }
 
 
-OMIC_TYPES = ["genexpr"]
+OMIC_TYPES = ["genexpr","scgenexpr"]
 
 ##### RULES #####
 rule all:
     input:
         # make regulons
-        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_raw-genexpr"),
+        expand(os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_raw-{omic_type}"), omic_type=OMIC_TYPES),
         
         # prune regulons
-        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-genexpr")
+        expand(os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-{omic_type}"), omic_type=OMIC_TYPES)
         
         
 rule make_regulons:
@@ -58,8 +66,8 @@ rule make_regulons:
         
         regulators = pd.read_table(input.regulators)
         omic_type = params.omic_type
-        feature_name = "EVENT" if omic_type!="genexpr" else "ENSEMBL_ID"
-        value_name = "delta_psi" if omic_type!="genexpr" else "log2fc_tpm"
+        feature_name = "EVENT" if omic_type not in ["genexpr","scgenexpr"] else "ENSEMBL_ID"
+        value_name = "delta_psi" if omic_type not in ["genexpr","scgenexpr"] else "log2fc_genexpr"
         
         # prep regulators
         regulators = regulators[["GENE","ENSEMBL"]]
@@ -73,6 +81,10 @@ rule make_regulons:
             if "ENCORE" in f:
                 dataset = os.path.basename(os.path.dirname(os.path.dirname(f)))
                 cell_line = os.path.basename(os.path.dirname(f))
+            
+            elif "Replogle" in f:
+                dataset = os.path.basename(f).split("-")[0].split("_")[0]
+                cell_line = os.path.basename(f).split("-")[0].replace("ReplogleWeissman2022_","")
             
             elif "ENASFS" in f:
                 dataset = "ENASFS"
@@ -91,7 +103,7 @@ rule make_regulons:
             perts["tfmode"] = (-1)*np.sign(perts[value_name]) # they come from KD or KO, decrease activity
             
             os.makedirs(output.output_dir, exist_ok=True)
-            if "ENCORE" in dataset:
+            if ("ENCORE" in dataset) | ("Replogle" in dataset):
                 # subset
                 perts = perts.loc[perts["PERT_ID"].isin(regulators["ENSEMBL"])].copy()
 
@@ -168,7 +180,7 @@ rule prune_regulons:
     output:
         output_dir = directory(os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-{omic_type}"))
     params:
-        thresh = lambda wildcards: 15 if wildcards.omic_type!="genexpr" else 1
+        thresh = lambda wildcards: 15 if wildcards.omic_type not in ["genexpr","scgenexpr"] else 1
     run:
         import os
         import pandas as pd

@@ -12,8 +12,9 @@ RESULTS_DIR = os.path.join(ROOT,"results","program_regulation")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 PERT_GENEXPR_FILES = {
-    "ReplogleWeissman2022_rpe1": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-log2_fold_change_cpm.tsv.gz"),
-    "ReplogleWeissman2022_K562_gwps": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_gwps-log2_fold_change_cpm.tsv.gz")
+    #"ReplogleWeissman2022_rpe1": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-log2_fold_change_cpm.tsv.gz"),
+    #"ReplogleWeissman2022_K562_gwps": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_gwps-log2_fold_change_cpm.tsv.gz")
+    "ReplogleWeissman2022_K562_essential": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-log2_fold_change_cpm.tsv.gz")
 }
 
 
@@ -24,7 +25,7 @@ rule all:
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-genexpr.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys()),
         
         # make figures
-        os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
+        #os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
         
         
 rule compute_protein_activity:

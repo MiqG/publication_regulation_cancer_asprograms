@@ -48,7 +48,7 @@ rule compute_protein_activity:
 rule figures_regulon_evaluation:
     input:
         protein_activity_bulk = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-genexpr.tsv.gz"),
-        protein_activity_singlecell = os.path.join(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_gwps-genexpr.tsv.gz"),
+        protein_activity_singlecell = os.path.join(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-genexpr.tsv.gz"),
         cancer_program = os.path.join(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
     output:
         directory(os.path.join(RESULTS_DIR,"figures","eval_bulk_vs_singlecell"))

@@ -31,22 +31,32 @@ PERT_GENEXPR_FILES = {
     "ENASFS": os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','log2_fold_change_tpm.tsv.gz')
 }
 
+PERT_SCGENEXPR_FILES = {
+    "ReplogleWeissman2022_K562_essential": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_by_batch-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_by_batch-log2_fold_change_cpm.tsv.gz"),
+    #os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+}
+
 EVAL_DATASETS = list(PERT_GENEXPR_FILES.keys())
 
 PERT_FILES = {
     "EX": PERT_SPLICING_FILES,
-    "genexpr": PERT_GENEXPR_FILES
+    "genexpr": PERT_GENEXPR_FILES,
+    "scgenexpr": PERT_SCGENEXPR_FILES
 }
 
 METADATA_FILES = [
     os.path.join(PREP_DIR,"metadata","ENCOREKO.tsv.gz"),
     os.path.join(PREP_DIR,"metadata","ENCOREKD.tsv.gz"),
-    os.path.join(PREP_DIR,"metadata","ENASFS.tsv.gz")
+    os.path.join(PREP_DIR,"metadata","ENASFS.tsv.gz"),
+    os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-conditions.tsv.gz")
 ]
 
 REGULON_DIRS = {
     "genexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-genexpr"),
-    "EX": os.path.join(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX")
+    "EX": os.path.join(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX"),
+    "scgenexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-scgenexpr")
 }
 
 SHADOWS = ["no"] # bug in viper does not allow shadow correction
@@ -71,13 +81,13 @@ rule all:
         ## merge
         expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-{omic_type}.tsv.gz"), omic_type=OMIC_TYPES),
         
-        # estimate splicing factor activities in CCLE
-        ## compute signatures within
-        # expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz"), zip, dataset=DATASETS, omic_type=OMIC_TYPES),
-        expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_type}.tsv.gz"), dataset=EVAL_DATASETS, omic_type=OMIC_TYPES),
+#         # estimate splicing factor activities in CCLE
+#         ## compute signatures within
+#         # expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz"), zip, dataset=DATASETS, omic_type=OMIC_TYPES),
+#         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_type}.tsv.gz"), dataset=EVAL_DATASETS, omic_type=OMIC_TYPES),
         
-        # make figures
-        os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing")
+#         # make figures
+#         os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing")
         
         
 rule make_evaluation_labels:
@@ -106,6 +116,15 @@ rule make_evaluation_labels:
                     
                     # save
                     labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
+            elif "scgenexpr" in f:
+                metadata["PERT_ID"] = metadata["PERT_ENSEMBL"]
+                metadata["PERT_TYPE"] = "KNOCKDOWN"
+                # "PERT_GENE" columns would be nice to have
+                labels = metadata[["PERT_ID","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates()
+                
+                # save
+                dataset_file = os.path.basename(f).replace("-conditions","")
+                labels.dropna().to_csv(os.path.join(output.output_dir,dataset_file), **SAVE_PARAMS)
                 
             elif "ENASFS" in f:
                 # prepare labels

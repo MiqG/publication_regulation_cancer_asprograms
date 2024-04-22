@@ -34,17 +34,18 @@ PAL_DARK = "brown"
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_bulk_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz")
+# protein_activity_bulk_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-genexpr.tsv.gz")
 # protein_activity_singlecell_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-genexpr.tsv.gz")
+# metadata_singlecell_file = file.path(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-conditions.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","eval_bulk_vs_singlecell")
 
 ##### FUNCTIONS #####
-plot_evaluation = function(protein_activity_example, cancer_program_activity){
+plot_evaluation = function(protein_activity, cancer_program_activity){
     plts = list()
     
     # correlation activity Bulk vs SC within sample
-    X = protein_activity_example %>%
+    X = protein_activity %>%
         group_by(PERT_ENSEMBL) %>%
         summarize(
             correlation_pearson = cor(activity_bulk, activity_singlecell, method="pearson", use="pairwise.complete.obs")
@@ -66,7 +67,7 @@ plot_evaluation = function(protein_activity_example, cancer_program_activity){
         labs(x="Correlation Type", y="Correlation")
     
     sample_oi = X %>% slice_min(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
-    plts[["evaluation-activity_bulk_vs_singlecell-worst-scatter"]] = protein_activity_example %>%
+    plts[["evaluation-activity_bulk_vs_singlecell-worst-scatter"]] = protein_activity %>%
         filter(PERT_ENSEMBL == sample_oi) %>%
         drop_na() %>%
         ggscatter(x="activity_bulk", y="activity_singlecell", size=1, alpha=0.5, color=PAL_DARK) +
@@ -75,7 +76,7 @@ plot_evaluation = function(protein_activity_example, cancer_program_activity){
         labs(x="Bulk Protein Activity", y="SC Protein Activity", subtitle=sample_oi)
         
     sample_oi = X %>% slice_max(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
-    plts[["evaluation-activity_bulk_vs_singlecell-best-scatter"]] = protein_activity_example %>%
+    plts[["evaluation-activity_bulk_vs_singlecell-best-scatter"]] = protein_activity %>%
         filter(PERT_ENSEMBL == sample_oi) %>%
         drop_na() %>%
         ggscatter(x="activity_bulk", y="activity_singlecell", size=1, alpha=0.5, color=PAL_DARK) +
@@ -111,19 +112,19 @@ plot_evaluation = function(protein_activity_example, cancer_program_activity){
 }
 
 
-make_plots = function(protein_activity_example, cancer_program_activity){
+make_plots = function(protein_activity, cancer_program_activity){
     plts = list(
-        plot_evaluation(protein_activity_example, cancer_program_activity)
+        plot_evaluation(protein_activity, cancer_program_activity)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 
-make_figdata = function(protein_activity_example, cancer_program_activity){
+make_figdata = function(protein_activity, cancer_program_activity){
     figdata = list(
         "eval_bulk_vs_singlecell" = list(
-            "protein_activity_example" = protein_activity_example,
+            "protein_activity" = protein_activity,
             "cancer_program_activity" = cancer_program_activity
         )
     )
@@ -197,21 +198,47 @@ main = function(){
     # load
     protein_activity_bulk = read_tsv(protein_activity_bulk_file)
     protein_activity_singlecell = read_tsv(protein_activity_singlecell_file)
+    metadata_singlecell = read_tsv(metadata_singlecell_file)
     cancer_program = read_tsv(cancer_program_file)
     
     # prep
-    protein_activity_example = protein_activity_bulk %>%
+    protein_activity = protein_activity_bulk %>%
         pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_bulk") %>%
         left_join(
             protein_activity_singlecell %>%
-            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_singlecell"),
+            pivot_longer(-regulator, names_to="sampleID", values_to="activity_singlecell"),
             by = c("PERT_ENSEMBL","regulator")
         ) %>%
         drop_na()
     
+   n_cells_threshs = c(1,5,10)
+   corrs_act_kd = lapply(n_cells_threshs, function(n_cells_thresh){
+       corrs = protein_activity_k562 %>%
+                filter(regulator == PERT_ENSEMBL) %>%
+                filter(n_cells >= n_cells_thresh) %>%
+                drop_na(activity_k562, pert_efficiency_fc) %>%
+                group_by(PERT_ENSEMBL, PERT_GENE) %>%
+                summarize(
+                    correlation_pearson = cor(activity_k562, pert_efficiency_fc, method="pearson"),
+                    correlation_spearman = cor(activity_k562, pert_efficiency_fc, method="spearman"),
+                    n_conditions = n(),
+                    pert_efficiency_fc_std = sd(pert_efficiency_fc),
+                    n_cells_thresh = n_cells_thresh
+                ) %>%
+                ungroup() %>%
+                pivot_longer(
+                    c(correlation_pearson, correlation_spearman), 
+                    names_to="correlation_type", values_to="correlation"
+                )
+       
+       return(corrs)
+   }) %>% bind_rows()
+    # do the same but randomly
+    # correlating bulk vs single cell is not trivial if we consider singlecell batches...
+    
     cancer_program_activity = cancer_program %>%
         left_join(
-            protein_activity_example, 
+            protein_activity, 
             by=c("ENSEMBL"="regulator")
         ) %>%
         pivot_longer(c(activity_bulk, activity_singlecell), names_to="activity_type", values_to="activity") %>%
@@ -222,10 +249,10 @@ main = function(){
         pivot_wider(id_cols=c("PERT_ENSEMBL","driver_type"), names_from="activity_type", values_from="activity")
     
     # plot
-    plts = make_plots(protein_activity_example, cancer_program_activity)
+    plts = make_plots(protein_activity, cancer_program_activity)
     
     # make figdata
-    figdata = make_figdata(protein_activity_example, cancer_program_activity)
+    figdata = make_figdata(protein_activity, cancer_program_activity)
     
     # save
     save_plots(plts, figs_dir)

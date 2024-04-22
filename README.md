@@ -1,9 +1,20 @@
 # Pipeline
 ## Data
 - [X] from scPerturb
-    - ReplogleWeissman2022: K562 and RPE1
+    - [X] ReplogleWeissman2022: K562 and RPE1
+        - QC
+            - exclude too much mitochondrial reads
+            - exclude cells with few UMIs
+            - exclude cells with low knockdown efficiency
+        - make pseudobulks by gemgroup/batch by either:
+            - averaging CPMs
+            - summing reads and computing CPMs afterwards
+        - compute fold changes w.r.t. control cells either:
+            - subracting from corresponding gemgroup/batch
+            - subtracting from the mean across non-treated gemgroup/batches
+            
 - [X] from VIPER splicing
-    - gene expression and splicing of SF perturbations
+    - [X] gene expression and splicing of SF perturbations
     - [X] cancer splicing programs
     
 ## Analysis
@@ -28,6 +39,9 @@
         - [ ] Correlation between changes in gene expression in bulk vs single cell. Is it comparable to the correlation with activity?
         - [ ] Uncertainty of estimated protein activities: number of expressed/detected genes in single cells vs activity correlations with bulk
         - in single cell, should we compute median across replicates?
+        
+### Detection of switch in cancer splicing programs during carcinogenesis
+1. [ ] Data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE204845
 
 ### Charting the regulation of the cancer splicing program
 4. [ ] Confirm that there is a switch of cancer splicing program during carcinogenesis
