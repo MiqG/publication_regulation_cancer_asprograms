@@ -27,6 +27,11 @@ PAL_EVAL_TYPE = c(
 )
 PAL_DARK = "brown"
 
+PAL_DRIVER_TYPE = c(
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
+)
+
 # Development
 # -----------
 # ROOT = here::here()
@@ -34,13 +39,49 @@ PAL_DARK = "brown"
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_bulk_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-genexpr.tsv.gz")
-# protein_activity_singlecell_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-genexpr.tsv.gz")
+# protein_activity_bulk_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-genexpr.tsv.gz")
+# protein_activity_singlecell_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-scgenexpr.tsv.gz")
 # metadata_singlecell_file = file.path(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-conditions.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","eval_bulk_vs_singlecell")
+PREP_VIPER_DIR = file.path(dirname(ROOT),"publication_viper_splicing","data","prep")
+metadata_file = file.path(PREP_VIPER_DIR,"metadata","tumorigenesis.tsv.gz")
 
 ##### FUNCTIONS #####
+plot_tumorigenesis = function(protein_activity){
+    plts = list()
+    
+    X = protein_activity %>%
+        filter(study_accession=="PRJNA193487") %>%
+        drop_na(driver_type) %>%
+        group_by(cell_line_name, driver_type, study_accession, GENE) %>%
+        summarize(
+            activity_singlecell = median(activity_singlecell),
+            activity_bulk = median(activity_bulk)
+        ) %>%
+        ungroup() %>%
+        mutate(cell_line_name=factor(
+            cell_line_name, levels=c("BJ_PRIMARY","BJ_IMMORTALIZED",
+                                     "BJ_TRANSFORMED","BJ_METASTATIC")
+        ))
+    
+    plts[["tumorigenesis-cell_line_vs_activity-violin"]] = X %>%
+        pivot_longer(c(activity_singlecell,activity_bulk), names_to="activity_type", values_to="activity") %>%
+        filter(cell_line_name!="BJ_PRIMARY") %>%
+        ggplot(aes(x=cell_line_name, y=activity, group=interaction(cell_line_name,driver_type))) +
+        geom_violin(aes(fill=driver_type), color=NA, position=position_dodge(0.9)) +
+        geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
+        fill_palette(PAL_DRIVER_TYPE) +
+        facet_wrap(~activity_type, nrow=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        stat_compare_means(method="wilcox.test", label="p.signif", size=FONT_SIZE, family=FONT_FAMILY) + 
+        theme_pubr() +
+        labs(x="Cell Line", y="Protein Activity", fill="Driver Type")
+
+    return(plts)
+}
+
+
 plot_evaluation = function(protein_activity, cancer_program_activity){
     plts = list()
     
@@ -198,10 +239,48 @@ main = function(){
     # load
     protein_activity_bulk = read_tsv(protein_activity_bulk_file)
     protein_activity_singlecell = read_tsv(protein_activity_singlecell_file)
+    metadata = read_tsv(metadata_file)
     metadata_singlecell = read_tsv(metadata_singlecell_file)
     cancer_program = read_tsv(cancer_program_file)
     
     # prep
+    protein_activity = protein_activity_singlecell %>%
+        pivot_longer(-regulator, names_to="sampleID", values_to="activity_singlecell") %>%
+        left_join(
+            protein_activity_bulk %>%
+            pivot_longer(-regulator, names_to="sampleID", values_to="activity_bulk"),
+            by = c("sampleID","regulator")
+        ) %>%
+        left_join(metadata, by="sampleID") %>%
+        drop_na(condition, activity_singlecell, activity_bulk) %>%
+        mutate(
+            condition_lab = sprintf(
+                "%s (%s%s) (%s%s) | %s | %s", condition, pert_time, pert_time_units, 
+                pert_concentration, pert_concentration_units, cell_line_name, study_accession
+            )
+        ) %>%
+        
+        # summarize replicates
+        group_by(condition_lab, condition, pert_time, pert_time_units, 
+                 pert_concentration, pert_concentration_units, cell_line_name, study_accession,
+                 PERT_ENSEMBL, PERT_GENE, regulator) %>%
+        summarize(
+            activity_bulk = median(activity_bulk, na.rm=TRUE),
+            abs_activity_bulk = abs(activity_bulk),
+            activity_singlecell = median(activity_singlecell, na.rm=TRUE),
+            abs_activity_singlecell = abs(activity_singlecell)
+        ) %>%
+        ungroup() %>%
+        
+        # add activity
+        group_by(condition_lab) %>%
+        mutate(
+            total_avail_sfs = sum(regulator %in% unlist(strsplit(PERT_ENSEMBL, ",")))
+        ) %>%
+        ungroup() %>%
+        left_join(cancer_program, by=c("regulator"="ENSEMBL"))
+    
+    
     protein_activity = protein_activity_bulk %>%
         pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_bulk") %>%
         left_join(

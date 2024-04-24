@@ -17,8 +17,8 @@ RESULTS_DIR = os.path.join(ROOT,"results","preprocess_data")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 DATASETS = ["K562_essential","K562_gwps","rpe1"]
-DATASETS = ["K562_essential"]
-PSEUDOBULK_TYPES = ["pseudobulk_by_batch","pseudobulk_across_batches"]
+#PSEUDOBULK_TYPES = ["pseudobulk_by_batch","pseudobulk_across_batches"]
+PSEUDOBULK_TYPES = ["pseudobulk_across_batches"]
 
 ##### RULES #####
 rule all:
@@ -47,7 +47,7 @@ rule preprocess_scperturb:
         thresh_ncells = 3,
         thresh_mito = 0.15
     resources:
-        memory = 300, # GB
+        memory = 150, # GB
         runtime = 3600*2 # h
     run:
         import scanpy as sc
@@ -105,7 +105,7 @@ rule summarize_genexpr_by_perturbation:
         adata = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-{pseudobulk_type}.h5ad"),
         conditions = os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_{dataset}-{pseudobulk_type}-conditions.tsv.gz")
     resources:
-        memory = 300, # GB
+        memory = 150, # GB
         runtime = 3600*2 # h
     params:
         pseudobulk_type = "{pseudobulk_type}"
@@ -119,11 +119,11 @@ rule summarize_genexpr_by_perturbation:
         adata = sc.read_h5ad(input.adata)
         pseudobulk_type = params.pseudobulk_type
 
-        # normalize counts to CPMs
-        ## Normalizing to median total counts
-        adata.X = 1e6 * (adata.X / adata.obs["total_read_count"].values.reshape(-1,1))
-        ## log scale
-        adata.X = np.log2(adata.X + 1)
+        # # normalize counts to CPMs
+        # ## Normalizing to median total counts
+        # adata.X = 1e6 * (adata.X / adata.obs["total_read_count"].values.reshape(-1,1))
+        # ## log scale
+        # adata.X = np.log2(adata.X + 1)
         
         # summarize gene expression by some grouping variable(s)
         def summarize_genexpr_perts(adata, obs_oi, chunk_size, sep="___"):
@@ -143,14 +143,19 @@ rule summarize_genexpr_by_perturbation:
             n_chunks = int(np.ceil(n_samples/chunk_size))
             chunk_size = int(np.ceil(n_samples/n_chunks))
             
-            print("Averaging replicates...")
+            print("Summing replicates...")
             summarized_genexpr = []
             for chunk_i in tqdm(range(n_chunks), total=n_chunks):
                 conds_chunk = replicated_conditions[chunk_i*chunk_size:chunk_i*chunk_size+chunk_size]
                 cells_oi = adata.obs[adata.obs["condition"].isin(conds_chunk.index)].index
                 adata_chunk = adata[cells_oi].to_df()
                 adata_chunk["condition"] = adata[cells_oi].obs["condition"]
-                adata_chunk = adata_chunk.groupby(["condition"]).mean()
+                adata_chunk = adata_chunk.groupby(["condition"]).sum()
+                
+                # normalize pseudobulk gene counts
+                adata_chunk = 1e6 * (adata_chunk / adata_chunk.sum(axis=1).values.reshape(-1,1))
+                adata_chunk = np.log2(adata_chunk + 1)
+                
                 summarized_genexpr.append(adata_chunk)
                 
                 del adata_chunk
@@ -211,6 +216,7 @@ rule summarize_genexpr_by_perturbation:
             summarized_genexpr = summarized_genexpr.loc[conditions.index]
             
             return summarized_genexpr, conditions
+        
         if pseudobulk_type=="pseudobulk_by_batch":
             obs_oi = ["PERT_ENSEMBL","batch"]
             chunk_size = 5_000
@@ -220,7 +226,7 @@ rule summarize_genexpr_by_perturbation:
             chunk_size = 50
         
         genexpr, conditions = summarize_genexpr_perts(adata, obs_oi, chunk_size)
-
+        
         # make adata
         adata = sc.AnnData(X=genexpr, obs=conditions)
         

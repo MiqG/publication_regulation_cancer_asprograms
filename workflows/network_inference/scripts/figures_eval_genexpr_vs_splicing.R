@@ -35,8 +35,12 @@ PAL_DARK = "brown"
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
 # evaluation_ex_file = file.path(RESULTS_DIR,"files","regulon_evaluation_scores","merged-EX.tsv.gz")
 # evaluation_genexpr_file = file.path(RESULTS_DIR,"files","regulon_evaluation_scores","merged-genexpr.tsv.gz")
-# protein_activity_ex_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-EX.tsv.gz")
-# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz")
+# evaluation_scgenexpr_file = file.path(RESULTS_DIR,"files","regulon_evaluation_scores","merged-scgenexpr.tsv.gz")
+# protein_activity_ex_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX.tsv.gz")
+# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-genexpr.tsv.gz")
+# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-scgenexpr.tsv.gz")
+# protein_activity_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_genexpr.tsv.gz")
+# protein_activity_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","network_evaluation")
 
 ##### FUNCTIONS #####
@@ -44,7 +48,7 @@ plot_evaluation = function(evaluation, protein_activity_example){
     plts = list()
     
     X = evaluation %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, 
+        group_by(omic_type, eval_direction, eval_type, regulon_set, rnaseq_type,
                  n_tails, regulon_set_id, pert_type_lab, regulator) %>%
         summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
         ungroup() 
@@ -57,7 +61,7 @@ plot_evaluation = function(evaluation, protein_activity_example){
                      position=position_dodge(0.5)) +
         fill_palette(PAL_EVAL_TYPE) + 
         theme_pubr() +
-        facet_wrap(~eval_direction+regulon_set_id, ncol=2) +
+        facet_wrap(~regulon_set_id+eval_direction+rnaseq_type, ncol=4) +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         geom_text(
             aes(y = -0.1, label=label), 
@@ -69,8 +73,8 @@ plot_evaluation = function(evaluation, protein_activity_example){
         labs(x="Validation Perturbation", y="Recall", fill="Inference Type")
 
     
-    plts[["evaluation-ranking_perc_vs_regulon_set-main-box"]] = X %>%
-        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator) %>%
+    plts[["evaluation-ranking_perc_vs_regulon_set-main-box"]] = X %>% 
+        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator, rnaseq_type) %>%
         summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
         ungroup() %>%
         ggplot(aes(x=omic_type, y=ranking_perc, 
@@ -79,7 +83,7 @@ plot_evaluation = function(evaluation, protein_activity_example){
                      position=position_dodge(0.5)) +
         fill_palette(PAL_EVAL_TYPE) + 
         theme_pubr() +
-        facet_wrap(~eval_direction, ncol=2) +
+        facet_wrap(~eval_direction+rnaseq_type, ncol=2) +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         geom_text(
             aes(y = -0.1, label=label), 
@@ -92,39 +96,47 @@ plot_evaluation = function(evaluation, protein_activity_example){
     
     # correlation activity SF-exon vs SF-gene within sample
     X = protein_activity_example %>%
+        drop_na() %>%
         group_by(PERT_ENSEMBL) %>%
         summarize(
-            correlation_pearson = cor(activity_ex, activity_genexpr, method="pearson", use="pairwise.complete.obs")
+            ex_vs_genexpr = cor(activity_ex, activity_genexpr, method="pearson"),
+            ex_vs_scgenexpr = cor(activity_ex, activity_scgenexpr, method="pearson"),
+            ex_vs_model_genexpr = cor(activity_ex, activity_model_genexpr, method="pearson"),
+            ex_vs_model_scgenexpr = cor(activity_ex, activity_model_scgenexpr, method="pearson"),
+            genexpr_vs_scgenexpr = cor(activity_genexpr, activity_scgenexpr, method="pearson")
         ) %>%
         ungroup()
     
     plts[["evaluation-activity_ex_vs_genexpr-within-violin"]] = X %>%
         pivot_longer(-PERT_ENSEMBL, names_to="correlation_type", values_to="correlation") %>%
-        ggviolin(x="correlation_type", y="correlation", fill="orange", color=NA) + 
+        drop_na() %>%
+        ggviolin(x="correlation_type", y="correlation", fill="orange", color=NA, trim=TRUE) + 
         geom_boxplot(width=0.5, outlier.size=0.1, fill=NA) + 
         geom_text(
             aes(y = 0, label=label), 
             . %>% 
             count(correlation_type) %>% 
             mutate(label=paste0("n=",n)),
-            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
+            position=position_dodge(0.9), size=FONT_SIZE+2, family=FONT_FAMILY
         ) +
+        theme_pubr(x.text.angle = 25) + 
         labs(x="Correlation Type", y="Correlation")
     
-    sample_oi = X %>% slice_min(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
+    # highlight correlations
+    sample_oi = X %>% slice_min(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
     plts[["evaluation-activity_ex_vs_genexpr-worst-scatter"]] = protein_activity_example %>%
         filter(PERT_ENSEMBL == sample_oi) %>%
         drop_na() %>%
-        ggscatter(x="activity_ex", y="activity_genexpr", size=1, alpha=0.5, color=PAL_DARK) +
-        stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
+        ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
+        stat_cor(size=FONT_SIZE+2, family=FONT_FAMILY, method="pearson") +
         theme(aspect.ratio=1) +
         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
         
-    sample_oi = X %>% slice_max(correlation_pearson, n=1) %>% pull(PERT_ENSEMBL)
+    sample_oi = X %>% slice_max(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
     plts[["evaluation-activity_ex_vs_genexpr-best-scatter"]] = protein_activity_example %>%
         filter(PERT_ENSEMBL == sample_oi) %>%
         drop_na() %>%
-        ggscatter(x="activity_ex", y="activity_genexpr", size=1, alpha=0.5, color=PAL_DARK) +
+        ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
         stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
         theme(aspect.ratio=1) +
         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
@@ -221,15 +233,24 @@ main = function(){
     # load
     evaluation = list(
         read_tsv(evaluation_ex_file),
-        read_tsv(evaluation_genexpr_file)
+        read_tsv(evaluation_genexpr_file),
+        read_tsv(evaluation_scgenexpr_file)
     ) %>%
     bind_rows()
     protein_activity_ex = read_tsv(protein_activity_ex_file)
     protein_activity_genexpr = read_tsv(protein_activity_genexpr_file)
+    protein_activity_scgenexpr = read_tsv(protein_activity_scgenexpr_file)
+    protein_activity_model_genexpr = read_tsv(protein_activity_model_genexpr_file)
+    protein_activity_model_scgenexpr = read_tsv(protein_activity_model_scgenexpr_file)
     
     # prep
     evaluation = evaluation %>%
-        mutate(regulon_id = gsub("-","_",regulon_id)) %>%
+        mutate(
+            signature_id = gsub("-pseudobulk_across_batches","",signature_id),
+            regulon_id = gsub("-","_",regulon_id),
+            regulon_id = gsub("_log2fc_genexpr","",regulon_id),
+            regulon_id = gsub("_delta_psi","",regulon_id)
+        ) %>%
         filter(signature_id!=regulon_id) %>%
         filter(!(str_detect(regulon_id,"ENASFS") & (signature_id=="ENASFS"))) %>%
         # consider only signatures that we know activity 
@@ -241,14 +262,33 @@ main = function(){
                 PERT_TYPE=="KNOCKOUT" ~ "KO",
                 PERT_TYPE=="OVEREXPRESSION" ~ "OE"
             ),
-            regulon_set = gsub("-.*","",regulon_set_id)
+            rnaseq_type = case_when(
+                str_detect(signature_id, "Replogle") ~ "scRNAseq",
+                TRUE ~ "bulkRNAseq"
+            ),
+            regulon_set = gsub(".*-","",regulon_set_id)
         )
     
-    protein_activity_example = protein_activity_ex %>%
-        pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_ex") %>%
+    protein_activity_example = protein_activity_scgenexpr %>%
+        pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_scgenexpr") %>%
         left_join(
             protein_activity_genexpr %>%
             pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_genexpr"),
+            by = c("PERT_ENSEMBL","regulator")
+        ) %>%
+        left_join(
+            protein_activity_ex %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_ex"),
+            by = c("PERT_ENSEMBL","regulator")
+        ) %>%
+        left_join(
+            protein_activity_model_genexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_model_genexpr"),
+            by = c("PERT_ENSEMBL","regulator")
+        ) %>%
+        left_join(
+            protein_activity_model_scgenexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_model_scgenexpr"),
             by = c("PERT_ENSEMBL","regulator")
         )
     
