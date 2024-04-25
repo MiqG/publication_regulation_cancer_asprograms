@@ -39,8 +39,10 @@ PAL_DARK = "brown"
 # protein_activity_ex_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX.tsv.gz")
 # protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-genexpr.tsv.gz")
 # protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-scgenexpr.tsv.gz")
-# protein_activity_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_genexpr.tsv.gz")
-# protein_activity_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_ewlayer_and_genexpr.tsv.gz")
+# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
+# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_genexpr.tsv.gz")
+# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","ENCOREKO_K562-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","network_evaluation")
 
 ##### FUNCTIONS #####
@@ -101,9 +103,10 @@ plot_evaluation = function(evaluation, protein_activity_example){
         summarize(
             ex_vs_genexpr = cor(activity_ex, activity_genexpr, method="pearson"),
             ex_vs_scgenexpr = cor(activity_ex, activity_scgenexpr, method="pearson"),
-            ex_vs_model_genexpr = cor(activity_ex, activity_model_genexpr, method="pearson"),
-            ex_vs_model_scgenexpr = cor(activity_ex, activity_model_scgenexpr, method="pearson"),
-            genexpr_vs_scgenexpr = cor(activity_genexpr, activity_scgenexpr, method="pearson")
+            ex_vs_ew_model_genexpr = cor(activity_ex, activity_ew_model_genexpr, method="pearson"),
+            ex_vs_ew_model_scgenexpr = cor(activity_ex, activity_ew_model_scgenexpr, method="pearson"),
+            ex_vs_fc_model_genexpr = cor(activity_ex, activity_fc_model_genexpr, method="pearson"),
+            ex_vs_fc_model_scgenexpr = cor(activity_ex, activity_fc_model_scgenexpr, method="pearson")
         ) %>%
         ungroup()
     
@@ -113,33 +116,33 @@ plot_evaluation = function(evaluation, protein_activity_example){
         ggviolin(x="correlation_type", y="correlation", fill="orange", color=NA, trim=TRUE) + 
         geom_boxplot(width=0.5, outlier.size=0.1, fill=NA) + 
         geom_text(
-            aes(y = 0, label=label), 
+            aes(y = 1, label=label), 
             . %>% 
             count(correlation_type) %>% 
             mutate(label=paste0("n=",n)),
-            position=position_dodge(0.9), size=FONT_SIZE+2, family=FONT_FAMILY
+            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
         theme_pubr(x.text.angle = 25) + 
         labs(x="Correlation Type", y="Correlation")
     
-    # highlight correlations
-    sample_oi = X %>% slice_min(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
-    plts[["evaluation-activity_ex_vs_genexpr-worst-scatter"]] = protein_activity_example %>%
-        filter(PERT_ENSEMBL == sample_oi) %>%
-        drop_na() %>%
-        ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
-        stat_cor(size=FONT_SIZE+2, family=FONT_FAMILY, method="pearson") +
-        theme(aspect.ratio=1) +
-        labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
+#     # highlight correlations
+#     sample_oi = X %>% slice_min(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
+#     plts[["evaluation-activity_ex_vs_genexpr-worst-scatter"]] = protein_activity_example %>%
+#         filter(PERT_ENSEMBL == sample_oi) %>%
+#         drop_na() %>%
+#         ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
+#         stat_cor(size=FONT_SIZE+2, family=FONT_FAMILY, method="pearson") +
+#         theme(aspect.ratio=1) +
+#         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
         
-    sample_oi = X %>% slice_max(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
-    plts[["evaluation-activity_ex_vs_genexpr-best-scatter"]] = protein_activity_example %>%
-        filter(PERT_ENSEMBL == sample_oi) %>%
-        drop_na() %>%
-        ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
-        stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
-        theme(aspect.ratio=1) +
-        labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
+#     sample_oi = X %>% slice_max(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
+#     plts[["evaluation-activity_ex_vs_genexpr-best-scatter"]] = protein_activity_example %>%
+#         filter(PERT_ENSEMBL == sample_oi) %>%
+#         drop_na() %>%
+#         ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
+#         stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
+#         theme(aspect.ratio=1) +
+#         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
     
     return(plts)
 }
@@ -182,8 +185,8 @@ save_plt = function(plts, plt_name, extension='.pdf',
 save_plots = function(plts, figs_dir){
     # main
     save_plt(plts, "evaluation-ranking_perc_vs_regulon_set_vs_pert_type-main-box", '.pdf', figs_dir, width=7.5, height=12)
-    save_plt(plts, "evaluation-ranking_perc_vs_regulon_set-main-box", '.pdf', figs_dir, width=7, height=7)
-    save_plt(plts, "evaluation-activity_ex_vs_genexpr-within-violin", '.pdf', figs_dir, width=2.5, height=6)
+    save_plt(plts, "evaluation-ranking_perc_vs_regulon_set-main-box", '.pdf', figs_dir, width=7, height=10)
+    save_plt(plts, "evaluation-activity_ex_vs_genexpr-within-violin", '.pdf', figs_dir, width=5.5, height=5)
     save_plt(plts, "evaluation-activity_ex_vs_genexpr-worst-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
     save_plt(plts, "evaluation-activity_ex_vs_genexpr-best-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
 }
@@ -240,8 +243,10 @@ main = function(){
     protein_activity_ex = read_tsv(protein_activity_ex_file)
     protein_activity_genexpr = read_tsv(protein_activity_genexpr_file)
     protein_activity_scgenexpr = read_tsv(protein_activity_scgenexpr_file)
-    protein_activity_model_genexpr = read_tsv(protein_activity_model_genexpr_file)
-    protein_activity_model_scgenexpr = read_tsv(protein_activity_model_scgenexpr_file)
+    protein_activity_ew_model_genexpr = read_tsv(protein_activity_ew_model_genexpr_file)
+    protein_activity_ew_model_scgenexpr = read_tsv(protein_activity_ew_model_scgenexpr_file)
+    protein_activity_fc_model_genexpr = read_tsv(protein_activity_fc_model_genexpr_file)
+    protein_activity_fc_model_scgenexpr = read_tsv(protein_activity_fc_model_scgenexpr_file)
     
     # prep
     evaluation = evaluation %>%
@@ -282,13 +287,23 @@ main = function(){
             by = c("PERT_ENSEMBL","regulator")
         ) %>%
         left_join(
-            protein_activity_model_genexpr %>%
-            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_model_genexpr"),
+            protein_activity_ew_model_genexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_ew_model_genexpr"),
             by = c("PERT_ENSEMBL","regulator")
         ) %>%
         left_join(
-            protein_activity_model_scgenexpr %>%
-            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_model_scgenexpr"),
+            protein_activity_ew_model_scgenexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_ew_model_scgenexpr"),
+            by = c("PERT_ENSEMBL","regulator")
+        ) %>%
+        left_join(
+            protein_activity_fc_model_genexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_fc_model_genexpr"),
+            by = c("PERT_ENSEMBL","regulator")
+        ) %>%
+        left_join(
+            protein_activity_fc_model_scgenexpr %>%
+            pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_fc_model_scgenexpr"),
             by = c("PERT_ENSEMBL","regulator")
         )
     
