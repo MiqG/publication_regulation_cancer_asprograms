@@ -22,7 +22,7 @@ REGULON_DIRS = {
 }
 MODEL_TYPES = ["fclayer","ewlayer"]
 
-DATASETS = ["Hodis2022-invitro_eng_melanoc"]
+DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma"]
 
 ##### RULES #####
 rule all:
@@ -65,7 +65,7 @@ rule compute_signatures:
             
             genexpr_ctl = adata[ctl_cells,:].X
             genexpr_batch = adata[adata.obs["cell_type"]==cell_type_oi].to_df()
-            genexpr_batch = genexpr_batch - genexpr_ctl
+            genexpr_batch = genexpr_batch - genexpr_ctl.mean(axis=0)
             genexpr.append(genexpr_batch)
             
         genexpr = pd.concat(genexpr)

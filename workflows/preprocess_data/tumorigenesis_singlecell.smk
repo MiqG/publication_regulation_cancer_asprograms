@@ -137,6 +137,7 @@ rule preprocess_Becker2021:
         ## gene annotation
         gene_annot = gene_annot[["Approved symbol","Ensembl gene ID"]]
         gene_annot.columns = ["GENE","ENSEMBL"]
+        gene_annot = gene_annot.dropna()
         
         ## gene names as ENSEMBL identifiers
         adata.var["GENE"] = adata.var.index
@@ -145,7 +146,7 @@ rule preprocess_Becker2021:
         adata.var = var.loc[~var["ENSEMBL"].isnull()].set_index("ENSEMBL")
         
         ## Transform log10 genexpr to log2
-        chunk_size = 10_000
+        chunk_size = 5_000
         n_samples = adata.shape[0]
         n_chunks = int(np.ceil(n_samples/chunk_size))
         chunk_size = int(np.ceil(n_samples/n_chunks))

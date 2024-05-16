@@ -34,7 +34,8 @@ ACTIVITY_TYPES = c(
 )
 
 LAB_ORDER = list(
-    "Hodis2022-invitro_eng_melanoc" = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA')
+    "Hodis2022-invitro_eng_melanoc" = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA'),
+    "Becker2021-adenoma" = c("Normal","Unaffected","Polyp","Adenocarcinoma")
 )
 
 # Development
@@ -44,16 +45,16 @@ LAB_ORDER = list(
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-genexpr.tsv.gz")
-# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-scgenexpr.tsv.gz")
-# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_ewlayer_and_genexpr.tsv.gz")
-# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
-# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_fclayer_and_genexpr.tsv.gz")
-# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-genexpr.tsv.gz")
+# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-scgenexpr.tsv.gz")
+# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_ewlayer_and_genexpr.tsv.gz")
+# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
+# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_fclayer_and_genexpr.tsv.gz")
+# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
-# metadata_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz")
-# dataset = "Hodis2022-invitro_eng_melanoc"
-# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Hodis2022-invitro_eng_melanoc")
+# metadata_file = file.path(PREP_DIR,"singlecell","Becker2021-adenoma-conditions.tsv.gz")
+# dataset = "Becker2021-adenoma"
+# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Becker2021-adenoma")
 
 ##### FUNCTIONS #####
 plot_tumorigenesis = function(protein_activity, dataset){
@@ -110,7 +111,7 @@ plot_tumorigenesis = function(protein_activity, dataset){
     plts[["tumorigenesis-treatment_vs_program_fc-line"]] = x %>%
         ggline(
             x="treatment", y="program_fc", color="activity_type", 
-            palette="Paired", size=LINE_SIZE, point.size=0.1
+            palette="Paired", size=LINE_SIZE, point.size=0.05
         ) +
         theme_pubr(x.text.angle = 45) + 
         labs(x="Treatment", y="Oncogenic vs Tumor Suppressor Activity", color="Activity Type")
@@ -153,9 +154,20 @@ save_plt = function(plts, plt_name, extension='.pdf',
 }
 
 
-save_plots = function(plts, figs_dir){
-    save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
-    save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=5, height=7)
+save_plots = function(plts, figs_dir, dataset){
+    
+    if (dataset=="Hodis2022-invitro_eng_melanoc"){
+        
+        save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
+        save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=5, height=7)
+        
+    } else if (dataset=="Becker2021-adenoma"){
+        
+        save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
+        save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=3.5, height=7)    
+    
+
+    }
 }
 
 
@@ -284,7 +296,7 @@ main = function(){
     figdata = make_figdata(protein_activity)
     
     # save
-    save_plots(plts, figs_dir)
+    save_plots(plts, figs_dir, dataset)
     save_figdata(figdata, figs_dir)
 }
 
