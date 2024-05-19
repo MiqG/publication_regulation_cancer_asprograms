@@ -35,7 +35,8 @@ ACTIVITY_TYPES = c(
 
 LAB_ORDER = list(
     "Hodis2022-invitro_eng_melanoc" = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA'),
-    "Becker2021-adenoma" = c("Normal","Unaffected","Polyp","Adenocarcinoma")
+    "Becker2021-adenoma" = c("Normal","Unaffected","Polyp","Adenocarcinoma"),
+    "Boiarsky2022-myeloma" = c("NBM","MGUS","SMM","MM")
 )
 
 # Development
@@ -45,16 +46,16 @@ LAB_ORDER = list(
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-genexpr.tsv.gz")
-# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-scgenexpr.tsv.gz")
-# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_ewlayer_and_genexpr.tsv.gz")
-# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
-# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_fclayer_and_genexpr.tsv.gz")
-# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Becker2021-adenoma-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-genexpr.tsv.gz")
+# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-scgenexpr.tsv.gz")
+# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_ewlayer_and_genexpr.tsv.gz")
+# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
+# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_fclayer_and_genexpr.tsv.gz")
+# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
-# metadata_file = file.path(PREP_DIR,"singlecell","Becker2021-adenoma-conditions.tsv.gz")
-# dataset = "Becker2021-adenoma"
-# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Becker2021-adenoma")
+# metadata_file = file.path(PREP_DIR,"singlecell","Boiarsky2022-myeloma-conditions.tsv.gz")
+# dataset = "Boiarsky2022-myeloma"
+# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Boiarsky2022-myeloma")
 
 ##### FUNCTIONS #####
 plot_tumorigenesis = function(protein_activity, dataset){
@@ -62,7 +63,7 @@ plot_tumorigenesis = function(protein_activity, dataset){
     
     X = protein_activity %>%
         drop_na(driver_type) %>%
-        group_by(treatment, driver_type, GENE) %>%
+        group_by(treatment, cell_type, driver_type, GENE) %>%
         summarize(
             activity_scgenexpr = median(activity_scgenexpr),
             activity_genexpr = median(activity_genexpr),
@@ -94,18 +95,18 @@ plot_tumorigenesis = function(protein_activity, dataset){
         geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
         fill_palette(PAL_DRIVER_TYPE) +
         theme_pubr(x.text.angle = 45) + 
-        facet_wrap(~activity_type, scales="free_y") +
+        facet_wrap(~activity_type+cell_type, scales="free_y") +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         stat_compare_means(method="wilcox.test", label="p.signif", size=FONT_SIZE, family=FONT_FAMILY) + 
         labs(x="Treatment", y="Protein Activity", fill="Driver Type")
     
     x = x %>%
-        group_by(treatment, driver_type, activity_type) %>%
+        group_by(treatment, driver_type, activity_type, cell_type) %>%
         summarize(
             activity = median(activity)
         ) %>%
         ungroup() %>%
-        pivot_wider(id_cols=c("treatment","activity_type"), names_from="driver_type", values_from="activity") %>%
+        pivot_wider(id_cols=c("cell_type","treatment","activity_type"), names_from="driver_type", values_from="activity") %>%
         mutate(program_fc = `Oncogenic` - `Tumor suppressor`)
     
     plts[["tumorigenesis-treatment_vs_program_fc-line"]] = x %>%
@@ -114,6 +115,8 @@ plot_tumorigenesis = function(protein_activity, dataset){
             palette="Paired", size=LINE_SIZE, point.size=0.05
         ) +
         theme_pubr(x.text.angle = 45) + 
+        facet_wrap(~cell_type, scales="free_y") +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Treatment", y="Oncogenic vs Tumor Suppressor Activity", color="Activity Type")
 
     return(plts)
@@ -163,9 +166,13 @@ save_plots = function(plts, figs_dir, dataset){
         
     } else if (dataset=="Becker2021-adenoma"){
         
-        save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
-        save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=3.5, height=7)    
-    
+        save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=30, height=30)
+        save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=12, height=12)   
+
+    } else if (dataset=="Boiarsky2022-myeloma"){
+        
+        save_plt(plts, "tumorigenesis-treatment_vs_activity-violin", '.pdf', figs_dir, width=30, height=30)
+        save_plt(plts, "tumorigenesis-treatment_vs_program_fc-line", '.pdf', figs_dir, width=12, height=7)
 
     }
 }

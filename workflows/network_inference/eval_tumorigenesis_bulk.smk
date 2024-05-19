@@ -132,7 +132,7 @@ rule predict_sf_activity_from_model:
     run:
         import torch
         import pandas as pd
-        from model import EWlayer, FClayer
+        from vipersp.model import EWlayer, FClayer
         
         # load
         activity = pd.read_table(input.activity, index_col=0)

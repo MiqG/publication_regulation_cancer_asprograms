@@ -22,7 +22,7 @@ REGULON_DIRS = {
 }
 MODEL_TYPES = ["fclayer","ewlayer"]
 
-DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma"]
+DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma","Boiarsky2022-myeloma"]
 
 ##### RULES #####
 rule all:
@@ -44,6 +44,8 @@ rule compute_signatures:
         adata = os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.h5ad")
     output:
         signature = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-genexpr.tsv.gz")
+    params:
+        dataset = "{dataset}"
     resources:
         memory = 20, # GB
         runtime = 3600*2 # h
@@ -54,21 +56,32 @@ rule compute_signatures:
         
         # load
         adata = sc.read_h5ad(input.adata)
+        dataset = params.dataset
         
         # compute fold changes by cell type
-        genexpr = []
-        cell_types = adata.obs["cell_type"].unique()
-        for cell_type_oi in tqdm(cell_types):
+        if dataset=="Boiarsky2022-myeloma":
+            # in this case all CTL cells are of CD138+ and cell type "normal"
+            ctl_cells = adata.obs["is_ctl"]
+            print("We have %s CTL cells." % ctl_cells.sum() )
+
+            genexpr_ctl = adata[ctl_cells,:].to_df().mean(axis=0).values.reshape(1,-1)
+            genexpr = adata.to_df()
+            genexpr = genexpr - genexpr_ctl
             
-            ctl_cells = (adata.obs["cell_type"]==cell_type_oi) & adata.obs["is_ctl"]
-            print("We have %s CTL cells for cell type %s." % (ctl_cells.sum(), cell_type_oi))
-            
-            genexpr_ctl = adata[ctl_cells,:].X
-            genexpr_batch = adata[adata.obs["cell_type"]==cell_type_oi].to_df()
-            genexpr_batch = genexpr_batch - genexpr_ctl.mean(axis=0)
-            genexpr.append(genexpr_batch)
-            
-        genexpr = pd.concat(genexpr)
+        else:
+            genexpr = []
+            cell_types = adata.obs["cell_type"].unique()
+            for cell_type_oi in tqdm(cell_types):
+
+                ctl_cells = (adata.obs["cell_type"]==cell_type_oi) & adata.obs["is_ctl"]
+                print("We have %s CTL cells for cell type %s." % (ctl_cells.sum(), cell_type_oi))
+
+                genexpr_ctl = adata[ctl_cells,:].to_df().mean(axis=0).values.reshape(1,-1)
+                genexpr_batch = adata[adata.obs["cell_type"]==cell_type_oi].to_df()
+                genexpr_batch = genexpr_batch - genexpr_ctl
+                genexpr.append(genexpr_batch)
+
+            genexpr = pd.concat(genexpr)
 
         # save
         genexpr.T.reset_index().to_csv(output.signature, **SAVE_PARAMS)
@@ -106,7 +119,7 @@ rule predict_sf_activity_from_model:
     run:
         import torch
         import pandas as pd
-        from model import EWlayer, FClayer
+        from vipersp.model import EWlayer, FClayer
         
         # load
         activity = pd.read_table(input.activity, index_col=0)

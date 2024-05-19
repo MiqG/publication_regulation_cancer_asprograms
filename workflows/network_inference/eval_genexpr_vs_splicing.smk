@@ -273,7 +273,7 @@ rule train_model_to_predict_sf_activity:
         import torch.nn as nn
         from torch.utils.data import DataLoader, TensorDataset
         import lightning as L
-        from model import EWlayer, FClayer, LitWrapper
+        from vipersp.model import EWlayer, FClayer, LitWrapper
         
         # load data
         train_features = pd.read_table(input.train_features, index_col=0)
@@ -372,7 +372,7 @@ rule predict_sf_activity_from_model:
     run:
         import torch
         import pandas as pd
-        from model import EWlayer, FClayer
+        from vipersp.model import EWlayer, FClayer
         
         # load
         activity = pd.read_table(input.activity, index_col=0)

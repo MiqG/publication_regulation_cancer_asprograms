@@ -15,7 +15,7 @@ RESULTS_DIR = os.path.join(ROOT,"results","preprocess_data")
 
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
-DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma"]
+DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma","Boiarsky2022-myeloma"]
 
 ##### RULES #####
 rule all:
@@ -30,6 +30,8 @@ rule all:
         os.path.join(PREP_DIR,"singlecell","Becker2021-adenoma.h5ad"),
         os.path.join(PREP_DIR,"singlecell","Becker2021-adenoma-cell_summary.tsv.gz"),
         ## Boiarsky2022
+        os.path.join(PREP_DIR,"singlecell","Boiarsky2022-myeloma.h5ad"),
+        os.path.join(PREP_DIR,"singlecell","Boiarsky2022-myeloma-cell_summary.tsv.gz"),
         
         # summarize
         expand(os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.h5ad"), dataset=DATASETS),
@@ -171,6 +173,60 @@ rule preprocess_Becker2021:
         
         # update adata
         adata.obs = metadata
+        
+        # save data
+        adata.write(output.adata)
+        metadata.to_csv(output.metadata, **SAVE_PARAMS)
+        
+        print("Done!")
+        
+        
+rule preprocess_Boiarsky2022:
+    input:
+        genexpr = os.path.join(RAW_DIR,"articles","Boiarsky2022","GSE193531_umi-count-matrix.csv.gz"),
+        metadata = os.path.join(RAW_DIR,"articles","Boiarsky2022","GSE193531_cell-level-metadata.csv.gz"),
+        gene_annot = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+    output:
+        adata = os.path.join(PREP_DIR,"singlecell","Boiarsky2022-myeloma.h5ad"),
+        metadata = os.path.join(PREP_DIR,"singlecell","Boiarsky2022-myeloma-cell_summary.tsv.gz")
+    run:
+        import pandas as pd
+        import numpy as np
+        import scanpy as sc
+        import gc
+        
+        # load data
+        genexpr = pd.read_csv(input.genexpr)
+        metadata = pd.read_csv(input.metadata)
+        gene_annot = pd.read_table(input.gene_annot)
+        gc.collect()
+        
+        # prep
+        ## gene annotation
+        gene_annot = gene_annot[["Approved symbol","Ensembl gene ID"]]
+        gene_annot.columns = ["GENE","ENSEMBL"]
+        gene_annot = gene_annot.dropna()
+        
+        ## gene names as ENSEMBL identifiers
+        genexpr = genexpr.rename(columns={"Unnamed: 0":"GENE"})
+        genexpr = pd.merge(genexpr, gene_annot, on="GENE", how="left")
+        genexpr = genexpr.loc[~genexpr["ENSEMBL"].isnull()].copy()
+        
+        ## compute log2(CPM + 1)
+        genexpr = genexpr.drop(columns=["GENE"]).set_index("ENSEMBL").copy()
+        genexpr = 1e6 * (genexpr / genexpr.sum(axis=0).values.reshape(1,-1))
+        genexpr = np.log2(genexpr + 1)
+        
+        ## add condition
+        metadata["is_ctl"] = metadata["disease_stage"] == "NBM"
+        metadata["cell_type"] = metadata["normal_or_neoplastic"]
+        obs_oi = ["disease_stage","sample_ID","cell_type","is_ctl"] # "treatment","replicate","cell_type","is_ctl"
+        sep = "___"
+        metadata["condition"] = metadata[obs_oi].apply(lambda x: sep.join(x.astype("str")), axis=1)
+        
+        # create adata
+        adata = sc.AnnData(genexpr.T)
+        adata.obs = pd.concat([adata.obs, metadata.set_index("index")], axis=1, join="inner")
         
         # save data
         adata.write(output.adata)
