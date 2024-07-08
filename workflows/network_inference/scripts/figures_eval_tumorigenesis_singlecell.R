@@ -29,9 +29,12 @@ PAL_DRIVER_TYPE = c(
 )
 
 ACTIVITY_TYPES = c(
-    "activity_genexpr", "activity_ew_model_genexpr", "activity_fc_model_genexpr",  
-    "activity_scgenexpr", "activity_ew_model_scgenexpr", "activity_fc_model_scgenexpr"
+    "activity_ex", "activity_genexpr", "activity_scgenexpr", 
+    "activity_ew_model_genexpr", "activity_fc_model_genexpr",  
+    "activity_ew_model_scgenexpr", "activity_fc_model_scgenexpr"
 )
+
+PAL_ACTIVITY_TYPES = setNames(get_palette("Dark2", length(ACTIVITY_TYPES)), ACTIVITY_TYPES)
 
 LAB_ORDER = list(
     "Hodis2022-invitro_eng_melanoc" = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA'),
@@ -46,16 +49,16 @@ LAB_ORDER = list(
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-genexpr.tsv.gz")
-# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-scgenexpr.tsv.gz")
-# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_ewlayer_and_genexpr.tsv.gz")
-# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
-# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_fclayer_and_genexpr.tsv.gz")
-# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Boiarsky2022-myeloma-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-genexpr.tsv.gz")
+# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-scgenexpr.tsv.gz")
+# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_ewlayer_and_genexpr.tsv.gz")
+# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
+# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_fclayer_and_genexpr.tsv.gz")
+# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
-# metadata_file = file.path(PREP_DIR,"singlecell","Boiarsky2022-myeloma-conditions.tsv.gz")
-# dataset = "Boiarsky2022-myeloma"
-# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Boiarsky2022-myeloma")
+# metadata_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz")
+# dataset = "Hodis2022-invitro_eng_melanoc"
+# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Hodis2022-invitro_eng_melanoc")
 
 ##### FUNCTIONS #####
 plot_tumorigenesis = function(protein_activity, dataset){
@@ -112,12 +115,13 @@ plot_tumorigenesis = function(protein_activity, dataset){
     plts[["tumorigenesis-treatment_vs_program_fc-line"]] = x %>%
         ggline(
             x="treatment", y="program_fc", color="activity_type", 
-            palette="Paired", size=LINE_SIZE, point.size=0.05
+            palette=PAL_ACTIVITY_TYPES, size=LINE_SIZE, point.size=0.05
         ) +
+        geom_hline(yintercept = 0, linetype="dashed", linewidth=LINE_SIZE) +
         theme_pubr(x.text.angle = 45) + 
         facet_wrap(~cell_type, scales="free_y") +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        labs(x="Treatment", y="Oncogenic vs Tumor Suppressor Activity", color="Activity Type")
+        labs(x="Treatment", y="Oncogenic vs Tumor Suppressor Activity", color="SF network")
 
     return(plts)
 }

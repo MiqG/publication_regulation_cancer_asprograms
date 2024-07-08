@@ -33,10 +33,12 @@ PAL_DRIVER_TYPE = c(
 )
 
 ACTIVITY_TYPES = c(
-    "activity_ex", 
-    "activity_genexpr", "activity_ew_model_genexpr", "activity_fc_model_genexpr",  
-    "activity_scgenexpr", "activity_ew_model_scgenexpr", "activity_fc_model_scgenexpr"
+    "activity_ex", "activity_genexpr", "activity_scgenexpr", 
+    "activity_ew_model_genexpr", "activity_fc_model_genexpr",  
+    "activity_ew_model_scgenexpr", "activity_fc_model_scgenexpr"
 )
+
+PAL_ACTIVITY_TYPES = setNames(get_palette("Dark2", length(ACTIVITY_TYPES)), ACTIVITY_TYPES)
 
 # Development
 # -----------
@@ -105,6 +107,30 @@ plot_tumorigenesis = function(protein_activity){
         stat_compare_means(method="wilcox.test", label="p.signif", size=FONT_SIZE, family=FONT_FAMILY) + 
         labs(x="Cell Line", y="Protein Activity", fill="Driver Type")
 
+    x = x %>%
+        group_by(driver_type, activity_type, cell_line_name) %>%
+        summarize(
+            activity = median(activity)
+        ) %>%
+        ungroup() %>%
+        pivot_wider(id_cols=c("cell_line_name","activity_type"), names_from="driver_type", values_from="activity") %>%
+        mutate(
+            program_fc = `Oncogenic` - `Tumor suppressor`,
+            is_model = str_detect(activity_type, "model")
+        )
+    
+    plts[["tumorigenesis-cell_line_vs_program_fc-line"]] = x %>%
+        filter(cell_line_name!="BJ_PRIMARY") %>%
+        ggline(
+            x="cell_line_name", y="program_fc", color="activity_type", 
+            palette=PAL_ACTIVITY_TYPES, size=LINE_SIZE, point.size=0.05
+        ) +
+        geom_hline(yintercept = 0, linetype="dashed", linewidth=LINE_SIZE) +
+        theme_pubr(x.text.angle = 45) + 
+        facet_wrap(~is_model) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="Carcinogenic Stage", y="Oncogenic vs Tumor Suppressor Activity", color="SF Network")   
+    
     return(plts)
 }
 
@@ -145,6 +171,7 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 save_plots = function(plts, figs_dir){
     save_plt(plts, "tumorigenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
+    save_plt(plts, "tumorigenesis-cell_line_vs_program_fc-line", '.pdf', figs_dir, width=12, height=8)
 }
 
 

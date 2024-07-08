@@ -17,6 +17,12 @@ require(clusterProfiler)
 require(scattermore)
 
 # variables
+COSMIC_DRIVER_TYPES = c(
+    "COSMIC Suppressor",
+    "COSMIC Oncogenic",
+    "COSMIC Dual"
+)
+
 
 # formatting
 LINE_SIZE = 0.25
@@ -32,6 +38,10 @@ PAL_DARK = "brown"
 PAL_FDR_DARK = "#005AB5"
 PAL_FDR_LIGHT = "#DC3220"
 
+PAL_DRIVER_TYPE = c(
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
+)
 # Development
 # -----------
 # ROOT = here::here()
@@ -80,13 +90,29 @@ plot_program_activity = function(cancer_program_activity){
     X = cancer_program_activity
     x = X %>%
         pivot_wider(
-            id_cols=c("PERT_ENSEMBL","PERT_GENE","cosmic_driver_type","target_in_cosmic"), 
+            id_cols=c("PERT_ENSEMBL","PERT_GENE","cosmic_driver_type","target_in_cosmic","driver_type"), 
             names_from="activity_type", values_from="activity_diff"
         )
     
     plts[["program_activity-ts_vs_onco_by_cell_line-scatter"]] = X %>%
         ggplot(aes(x=`Tumor suppressor`, y=`Oncogenic`)) +
         geom_scattermore(pixels = c(1000,1000), pointsize=8, alpha=0.5, color=PAL_DARK) +
+        geom_text(
+            aes(label=PERT_GENE),
+            . %>% 
+                group_by(activity_type) %>% 
+                slice_max(abs(`Tumor suppressor`*`Oncogenic`), n=1) %>%
+                ungroup(),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        geom_text(
+            aes(label=PERT_GENE),
+            . %>% 
+                group_by(activity_type) %>% 
+                slice_max(`Tumor suppressor`+`Oncogenic`, n=1) %>%
+                ungroup(),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
         theme_pubr() + 
         geom_hline(yintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
         geom_vline(xintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
@@ -94,8 +120,41 @@ plot_program_activity = function(cancer_program_activity){
         facet_wrap(~activity_type) +
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Tumor Suppressor Splicing Program Activity", y="Oncogenic Splicing Program Activity")
+
+    plts[["program_activity-diff_ranking_overview-scatter"]] = X %>%
+        drop_na(activity_diff) %>%
+        group_by(activity_type) %>%
+        arrange(activity_diff) %>%
+        mutate(
+            ranking = row_number(),
+            rel_ranking = ranking / n()
+        ) %>%
+        ungroup() %>%
+        ggplot(aes(x=rel_ranking, y=activity_diff)) +
+        geom_scattermore(pixels = c(1000,1000), pointsize=8, alpha=0.5, color=PAL_DARK) +
+        theme_pubr() + 
+        geom_text_repel(
+            aes(label=PERT_GENE),
+            . %>% 
+            group_by(activity_type) %>% 
+            slice_max(activity_diff, n=3) %>% 
+            ungroup(),
+            size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1, max.overlaps=50
+        ) +
+        geom_text_repel(
+            aes(label=PERT_GENE),
+            . %>% 
+            group_by(activity_type) %>% 
+            slice_min(activity_diff, n=3) %>% 
+            ungroup(),
+            size=FONT_SIZE,family=FONT_FAMILY, segment.size=0.1, max.overlaps=50
+        ) +
+        facet_wrap(~activity_type, ncol=2) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    plts[["program_activity-diff_ranking_by_cell_line-scatter"]] = X %>%
+    
+    plts[["program_activity-diff_ranking_by_cell_line_and_cosmic-scatter"]] = X %>%
         drop_na(activity_diff) %>%
         group_by(activity_type) %>%
         arrange(-activity_diff) %>%
@@ -127,7 +186,7 @@ plot_program_activity = function(cancer_program_activity){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    plts[["program_activity-diff_ranking_by_cell_line-density"]] = X %>%
+    plts[["program_activity-diff_ranking_by_cell_line_and_program-scatter"]] = X %>%
         drop_na(activity_diff) %>%
         group_by(activity_type) %>%
         arrange(-activity_diff) %>%
@@ -136,25 +195,26 @@ plot_program_activity = function(cancer_program_activity){
             rel_ranking = ranking / n()
         ) %>%
         ungroup() %>%
-        ggdensity(x="activity_diff", fill=PAL_DARK, color=NA) +
+        ggplot(aes(x=rel_ranking, y=activity_diff)) +
+        geom_scattermore(pixels = c(1000,1000), pointsize=8, alpha=0.5, color=PAL_DARK) +
         theme_pubr() + 
         geom_text_repel(
-            aes(label=PERT_GENE, y=0),
+            aes(label=PERT_GENE),
             . %>% 
-            group_by(activity_type, cosmic_driver_type) %>% 
+            group_by(activity_type, driver_type) %>% 
             slice_max(activity_diff, n=5) %>% 
             ungroup(),
             size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1, max.overlaps=50
         ) +
         geom_text_repel(
-            aes(label=PERT_GENE, y=0),
+            aes(label=PERT_GENE),
             . %>% 
-            group_by(activity_type, cosmic_driver_type) %>% 
+            group_by(activity_type, driver_type) %>% 
             slice_min(activity_diff, n=5) %>% 
             ungroup(),
             size=FONT_SIZE,family=FONT_FAMILY, segment.size=0.1, max.overlaps=50
         ) +
-        facet_wrap(~cosmic_driver_type+activity_type, ncol=2) +
+        facet_wrap(~driver_type+activity_type, ncol=2) +
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
@@ -177,32 +237,145 @@ plot_program_activity = function(cancer_program_activity){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="RPE1 Cancer Splicing Programs Activity Difference", y="K562 Cancer Splicing Programs Activity Difference")
     
+    comparisons = list(c("COSMIC Suppressor", "COSMIC Oncogenic"))
+    plts[["program_activity-diff_vs_cosmic-violin"]] = X %>%
+        filter(target_in_cosmic) %>%
+        mutate(cosmic_driver_type = factor(cosmic_driver_type, levels=COSMIC_DRIVER_TYPES)) %>%
+        ggviolin(x="cosmic_driver_type", y="activity_diff", fill="cosmic_driver_type", palette="Paired", color=NA, trim=TRUE) +
+        geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
+        geom_text(
+            aes(y = -4.5, label=label), 
+            . %>% 
+            count(activity_type, cosmic_driver_type) %>% 
+            mutate(label=paste0("n=",n)),
+            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        stat_compare_means(comparisons=comparisons, method="wilcox.test", size=FONT_SIZE, family=FONT_FAMILY) +
+        theme_pubr(x.text.angle = 70) +
+        facet_wrap(~activity_type, ncol=2) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        guides(fill="none") +
+        labs(x="COSMIC Driver Type", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
+
+    
+    comparisons = list(c("Tumor suppressor", "Oncogenic"))
+    plts[["program_activity-diff_vs_splicing_program-violin"]] = X %>%
+        filter(!is.na(driver_type)) %>%
+        ggviolin(x="driver_type", y="activity_diff", fill="driver_type", palette=PAL_DRIVER_TYPE, color=NA, trim=TRUE) +
+        geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black") +
+        geom_text(
+            aes(y = -4.5, label=label), 
+            . %>% 
+            count(activity_type, driver_type) %>% 
+            mutate(label=paste0("n=",n)),
+            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        stat_compare_means(comparisons=comparisons, method="wilcox.test", size=FONT_SIZE, family=FONT_FAMILY) +
+        theme_pubr(x.text.angle = 70) +
+        facet_wrap(~activity_type, ncol=2) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        guides(fill="none") +
+        labs(x="Cancer Splicing Program", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")    
+    
     return(plts)
+}
+
+
+plot_gsea = function(df){
+        
+    plt = df %>%
+        mutate(
+            Count = str_count(core_enrichment, "/")+1, 
+            GeneRatio=Count/setSize
+        ) %>%
+        arrange(NES, Description) %>%
+        mutate(Description = factor(Description, levels=unique(Description))) %>%
+        ggscatter(x="Description", y="NES", size="GeneRatio", color="p.adjust") +
+        scale_size(range=c(0.5,3)) + 
+        scale_color_continuous(
+            low=PAL_FDR_LIGHT, high=PAL_FDR_DARK, 
+            name="FDR", guide=guide_colorbar(reverse=TRUE)) +
+        theme_pubr(x.text.angle = 70)
+    
+    return(plt)
 }
 
 
 plot_enrichments = function(enrichments){
     plts = list()
     
+    # GO BP
+    X_oncogenic = enrichments[["rpe1_oncogenic_gobp"]] %>%
+        as.data.frame() %>%
+        slice_max(NES, n=5) %>%
+        bind_rows(
+            enrichments[["rpe1_oncogenic_gobp"]] %>%
+                as.data.frame() %>%
+                slice_min(NES, n=5)
+        ) %>%
+        mutate(dataset = "oncogenic")
+    
+    X_ts = enrichments[["rpe1_tumorsuppressor_gobp"]] %>%
+        as.data.frame() %>%
+        slice_max(NES, n=5) %>%
+        bind_rows(
+            enrichments[["rpe1_tumorsuppressor_gobp"]] %>%
+                as.data.frame() %>%
+                slice_min(NES, n=5)
+        ) %>%
+        mutate(dataset = "tumor_suppressor")
+    
+    X = X_oncogenic %>% bind_rows(X_ts)
+    
+    plts[["enrichments-activity_programs-dot"]] = X %>%
+        mutate(
+            Count = str_count(core_enrichment, "/")+1, 
+            GeneRatio = Count/setSize,
+            abs_nes = abs(NES)
+        ) %>%
+        arrange(NES, Description) %>%
+        mutate(Description = factor(Description, levels=unique(Description))) %>%
+        ggscatter(x="dataset", y="Description", size="abs_nes", color="NES") +
+        scale_size(range=c(0.1,2.5)) + 
+        scale_color_continuous(
+            low=PAL_FDR_DARK, high=PAL_FDR_LIGHT, 
+            name="NES", guide=guide_colorbar(reverse=TRUE)) +
+        theme_pubr(x.text.angle = 45)
+    
+    ## activity difference
+    X = enrichments[["rpe1_activity_diff_gobp"]] %>%
+        as.data.frame() %>%
+        slice_max(NES, n=5) %>%
+        bind_rows(
+            enrichments[["rpe1_activity_diff_gobp"]] %>%
+                as.data.frame() %>%
+                slice_min(NES, n=5)
+        )
+        
+    plts[["enrichments-activity_diff-dot"]] = X %>%
+        mutate(
+            Count = str_count(core_enrichment, "/")+1, 
+            GeneRatio=Count/setSize
+        ) %>%
+        arrange(NES, Description) %>%
+        mutate(Description = factor(Description, levels=unique(Description))) %>%
+        ggscatter(x="NES", y="Description", size="GeneRatio", color="p.adjust") +
+        scale_size(range=c(0.5,3)) + 
+        scale_color_continuous(
+            low=PAL_FDR_LIGHT, high=PAL_FDR_DARK, 
+            name="FDR", guide=guide_colorbar(reverse=TRUE))
+    
     X = enrichments
     for (x in names(X)){
         plt_name = sprintf("enrichments-activity_diff-%s-dot", x)
-        plts[[plt_name]] = X[[x]] %>% 
-            as.data.frame() %>%
-            slice_max(abs(NES), n=15) %>%
-            mutate(
-                Count = str_count(core_enrichment, "/")+1, 
-                GeneRatio=Count/setSize
+        df = X[[x]] %>% as.data.frame()
+        plts[[plt_name]] = df %>% 
+            slice_max(NES, n=5) %>%
+            bind_rows(
+                df %>% 
+                slice_min(NES, n=5)
             ) %>%
-            arrange(NES, Description) %>%
-            mutate(Description = factor(Description, levels=unique(Description))) %>%
-            ggscatter(x="NES", y="Description", size="GeneRatio", color="p.adjust") +
-            scale_size(range=c(0.5,3)) + 
-            scale_color_continuous(
-                low=PAL_FDR_LIGHT, high=PAL_FDR_DARK, 
-                name="FDR", guide=guide_colorbar(reverse=TRUE)) +
-            theme_pubr()
-            
+            plot_gsea()
     }
             
     return(plts)
@@ -245,14 +418,15 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 save_plots = function(plts, figs_dir){
     save_plt(plts, "program_activity-ts_vs_onco_by_cell_line-scatter", '.pdf', figs_dir, width=6, height=4)
-    save_plt(plts, "program_activity-diff_ranking_by_cell_line-scatter", '.pdf', figs_dir, width=8, height=17)
-    save_plt(plts, "program_activity-diff_ranking_by_cell_line-density", '.pdf', figs_dir, width=8, height=17)
+    save_plt(plts, "program_activity-diff_ranking_overview-scatter", '.pdf', figs_dir, width=8, height=6)
+    save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_cosmic-scatter", '.pdf', figs_dir, width=8, height=17)
+    save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_program-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_rpe1_vs_k562-scatter", '.pdf', figs_dir, width=8, height=8)
+    save_plt(plts, "program_activity-diff_vs_cosmic-violin", '.pdf', figs_dir, width=8, height=8)
+    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=8, height=8)
     
-    save_plt(plts, "enrichments-activity_diff-k562_gobp-dot", '.pdf', figs_dir, width=9, height=7)
-    save_plt(plts, "enrichments-activity_diff-k562_reactome-dot", '.pdf', figs_dir, width=17, height=7)
-    save_plt(plts, "enrichments-activity_diff-rpe1_gobp-dot", '.pdf', figs_dir, width=12, height=7)
-    save_plt(plts, "enrichments-activity_diff-rpe1_reactome-dot", '.pdf', figs_dir, width=17, height=7)
+    save_plt(plts, "enrichments-activity_programs-dot", '.pdf', figs_dir, width=12, height=7.5)
+    save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
 }
 
 
@@ -345,24 +519,35 @@ main = function(){
         ) %>%
         mutate(
             target_in_cosmic = !is.na(cosmic_driver_type)
-        ) 
+        ) %>%
+        left_join(
+            cancer_program %>% distinct(GENE, ENSEMBL, driver_type), 
+            by=c("PERT_ENSEMBL"="ENSEMBL", "PERT_GENE"="GENE")
+        )
     
     # enrichments
     enrichments = list()
     genes = cancer_program_activity %>% 
         filter(activity_type=="activity_rpe1") %>% 
-        arrange(-activity_diff) %>% 
-        distinct(PERT_GENE,activity_diff) %>% 
+        arrange(-Oncogenic) %>% 
+        distinct(PERT_GENE,Oncogenic) %>% 
         deframe()
-    enrichments[["rpe1_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["rpe1_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments[["rpe1_oncogenic_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
+    enrichments[["rpe1_oncogenic_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
     genes = cancer_program_activity %>% 
-        filter(activity_type=="activity_k562") %>% 
+        filter(activity_type=="activity_rpe1") %>% 
+        arrange(-`Tumor suppressor`) %>% 
+        distinct(PERT_GENE,`Tumor suppressor`) %>% 
+        deframe()
+    enrichments[["rpe1_tumorsuppressor_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
+    enrichments[["rpe1_tumorsuppressor_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    genes = cancer_program_activity %>% 
+        filter(activity_type=="activity_rpe1") %>% 
         arrange(-activity_diff) %>% 
         distinct(PERT_GENE,activity_diff) %>% 
         deframe()
-    enrichments[["k562_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["k562_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments[["rpe1_activity_diff_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
+    enrichments[["rpe1_activity_diff_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
     
     # plot
     plts = make_plots(cancer_program_activity, enrichments)

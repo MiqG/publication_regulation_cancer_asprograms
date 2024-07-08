@@ -96,6 +96,30 @@ plot_evaluation = function(evaluation, protein_activity_example){
         ) +
         labs(x="Regulon Set", y="Recall", fill="Inference Type")
     
+    
+    plts[["evaluation-ranking_perc_vs_regulon_set-main_simplified-box"]] = X %>% 
+        group_by(omic_type, eval_direction, eval_type, regulon_set, regulator, rnaseq_type) %>%
+        summarize(ranking_perc = median(ranking_perc, na.rm=TRUE)) %>%
+        ungroup() %>%
+        filter(eval_type == "real") %>%
+        ggplot(aes(x=eval_direction, y=ranking_perc, 
+                   group=interaction(eval_direction, regulon_set))) +
+        geom_boxplot(aes(fill=regulon_set), width=0.5, outlier.size=0.1, 
+                     position=position_dodge(0.5)) +
+        fill_palette("Dark2") + 
+        theme_pubr() +
+        facet_wrap(~rnaseq_type, ncol=2) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        geom_text(
+            aes(y = -0.1, label=label), 
+            . %>% 
+            count(rnaseq_type, regulon_set, eval_direction) %>% 
+            mutate(label=paste0("n=",n)),
+            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        labs(x="Recall Type", y="Recall", fill="SF Network")
+    
+    
     # correlation activity SF-exon vs SF-gene within sample
     X = protein_activity_example %>%
         drop_na() %>%
@@ -112,38 +136,22 @@ plot_evaluation = function(evaluation, protein_activity_example){
     
     plts[["evaluation-activity_ex_vs_genexpr-within-violin"]] = X %>%
         pivot_longer(-PERT_ENSEMBL, names_to="correlation_type", values_to="correlation") %>%
+        mutate(is_model = str_detect(correlation_type, "model")) %>%
         drop_na() %>%
         ggviolin(x="correlation_type", y="correlation", fill="orange", color=NA, trim=TRUE) + 
         geom_boxplot(width=0.5, outlier.size=0.1, fill=NA) + 
         geom_text(
             aes(y = 1, label=label), 
             . %>% 
-            count(correlation_type) %>% 
+            count(is_model, correlation_type) %>% 
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
         theme_pubr(x.text.angle = 25) + 
-        labs(x="Correlation Type", y="Correlation")
-    
-#     # highlight correlations
-#     sample_oi = X %>% slice_min(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
-#     plts[["evaluation-activity_ex_vs_genexpr-worst-scatter"]] = protein_activity_example %>%
-#         filter(PERT_ENSEMBL == sample_oi) %>%
-#         drop_na() %>%
-#         ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
-#         stat_cor(size=FONT_SIZE+2, family=FONT_FAMILY, method="pearson") +
-#         theme(aspect.ratio=1) +
-#         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
-        
-#     sample_oi = X %>% slice_max(ex_vs_scgenexpr, n=1) %>% pull(PERT_ENSEMBL)
-#     plts[["evaluation-activity_ex_vs_genexpr-best-scatter"]] = protein_activity_example %>%
-#         filter(PERT_ENSEMBL == sample_oi) %>%
-#         drop_na() %>%
-#         ggscatter(x="activity_ex", y="activity_scgenexpr", size=1, alpha=0.5, color=PAL_DARK) +
-#         stat_cor(size=FONT_SIZE, family=FONT_FAMILY, method="pearson") +
-#         theme(aspect.ratio=1) +
-#         labs(x="SF-exon Protein Activity", y="SF-gene Protein Activity", subtitle=sample_oi)
-    
+        facet_grid(~is_model, scales="free_x", space = "free") +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="Correlation Type", y="Pearson Correlation")
+
     return(plts)
 }
 
@@ -186,9 +194,8 @@ save_plots = function(plts, figs_dir){
     # main
     save_plt(plts, "evaluation-ranking_perc_vs_regulon_set_vs_pert_type-main-box", '.pdf', figs_dir, width=7.5, height=12)
     save_plt(plts, "evaluation-ranking_perc_vs_regulon_set-main-box", '.pdf', figs_dir, width=7, height=10)
-    save_plt(plts, "evaluation-activity_ex_vs_genexpr-within-violin", '.pdf', figs_dir, width=5.5, height=5)
-    save_plt(plts, "evaluation-activity_ex_vs_genexpr-worst-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
-    save_plt(plts, "evaluation-activity_ex_vs_genexpr-best-scatter", '.pdf', figs_dir, width=3.5, height=3.5)
+    save_plt(plts, "evaluation-ranking_perc_vs_regulon_set-main_simplified-box", '.pdf', figs_dir, width=8, height=6)
+    save_plt(plts, "evaluation-activity_ex_vs_genexpr-within-violin", '.pdf', figs_dir, width=6, height=6)
 }
 
 
