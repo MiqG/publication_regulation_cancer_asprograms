@@ -59,6 +59,11 @@ PAL_DRIVER_TYPE = c(
 # cosmic_genes_file = file.path(RAW_DIR,"COSMIC","cancer_gene_census.tsv")
 # figs_dir = file.path(RESULTS_DIR,"figures","upstream_regulators")
 
+# VIPER_SPLICING_DIR = "~/repositories/viper_splicing"
+# regulons_dir = file.path(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX")
+# event_info_file = file.path(RAW_DIR,'VastDB','EVENT_INFO-hg38_noseqs.tsv')
+# splicing_factors_file = file.path(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
+
 ##### FUNCTIONS #####
 load_ontologies = function(msigdb_dir, cosmic_genes_file){
     ontologies = list(
@@ -67,6 +72,7 @@ load_ontologies = function(msigdb_dir, cosmic_genes_file){
         "oncogenic_signatures" = read.gmt(file.path(msigdb_dir,"c6.all.v7.4.symbols.gmt")),
         "GO_BP" = read.gmt(file.path(msigdb_dir,"c5.go.bp.v7.4.symbols.gmt")),
         "GO_CC" = read.gmt(file.path(msigdb_dir,"c5.go.cc.v7.4.symbols.gmt")),
+        "CHEA" = read.gmt(file.path(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz")),
         "cosmic" = read_tsv(cosmic_genes_file) %>%
             dplyr::select("Gene Symbol","Role in Cancer") %>%
             rename(gene = `Gene Symbol`, cosmic_driver_type = `Role in Cancer`) %>%
@@ -381,10 +387,60 @@ plot_enrichments = function(enrichments){
     return(plts)
 }
 
+plot_network_analysis = function(networks_sf_ex){
+    plts = list()
+    
+    X = networks_sf_ex
+    
+    # correlation KD switch and oncogenic/suppressor %?
+    x = X %>% 
+        distinct(regulator,PERT_GENE,activity_diff,target_type,GENE) %>% 
+        count(regulator,PERT_GENE,activity_diff,target_type) %>%
+        group_by(regulator) %>%
+        mutate(
+            n_total = sum(n),
+            perc = 100 * n / n_total
+        ) %>%
+        ungroup() %>%
+        filter(n_total>=25)
+    
+    plts[["network_analysis-target_type_freq_vs_activity_diff-scatter"]] = x %>%
+        drop_na(perc, activity_diff) %>%
+        ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="target_type") +
+        color_palette(as.vector(c("darkred","darkgreen",PAL_DRIVER_TYPE))) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
+        #geom_smooth(method="lm", size=LINE_SIZE, color="black", linetype="dashed") +
+        facet_wrap(~target_type, scales="free") +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        guides(color="none") +
+        labs(x="% Target Genes", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
+    
+    x = X %>%
+        #filter(target_is_sf & !is.na(driver_type)) %>%
+        mutate(
+            sf_class = case_when(
+                !is.na(spliceosome_db_complex) ~ "Core",
+                in_go_rbp ~ "RBP",
+                TRUE ~ "Other"
+            )
+        ) %>%
+        distinct(target_type,sf_class,GENE) %>%
+        count(target_type,sf_class) %>%
+        group_by(sf_class) %>%
+        mutate(
+            n_total = sum(n),
+            perc = 100 * n / n_total
+        ) %>%
+        ungroup() %>%
+        
+    return(plts)
+}
+
 make_plots = function(cancer_program_activity, enrichments){
     plts = list(
         plot_program_activity(cancer_program_activity),
-        plot_enrichments(enrichments)
+        plot_enrichments(enrichments),
+        plot_network_analysis(networks_sf_ex)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -427,6 +483,8 @@ save_plots = function(plts, figs_dir){
     
     save_plt(plts, "enrichments-activity_programs-dot", '.pdf', figs_dir, width=12, height=7.5)
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
+    
+    save_plt(plts, "network_analysis-target_type_freq_vs_activity_diff-scatter", '.pdf', figs_dir, width=8, height=9)
 }
 
 
@@ -481,6 +539,14 @@ main = function(){
     cancer_program = read_tsv(cancer_program_file)
     gene_info = read_tsv(gene_info_file)
     ontologies = load_ontologies(msigdb_dir, cosmic_genes_file)
+    networks_sf_ex = lapply(list.files(regulons_dir, full.names=TRUE), function(regulons_file){
+        regulon_id = basename(regulons_file) %>% gsub("-delta_psi.tsv.gz","",.)
+        regulons = read_tsv(regulons_file) %>%
+            mutate(regulon_id = regulon_id)
+        return(regulons)
+    }) %>% bind_rows()
+    event_info = read_tsv(event_info_file)
+    splicing_factors = read_tsv(splicing_factors_file)
     
     # prep
     gene_info = gene_info %>%
@@ -548,12 +614,44 @@ main = function(){
         deframe()
     enrichments[["rpe1_activity_diff_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
     enrichments[["rpe1_activity_diff_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments[["rpe1_activity_diff_chea"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]])
+    
+    # network analysis
+    networks_sf_ex = networks_sf_ex %>% 
+        distinct(regulator, target) %>%
+        left_join(
+            event_info %>% distinct(EVENT,GENE),
+            by = c("target"="EVENT")
+        ) %>%
+        left_join(
+            cancer_program %>% distinct(driver_type, GENE),
+            by = "GENE"
+        ) %>%
+        mutate(
+            target_is_sf = GENE %in% splicing_factors[["GENE"]],
+            target_type = case_when(
+                target_is_sf & is.na(driver_type) ~ "Non-driver SF",
+                target_is_sf & driver_type=="Oncogenic" ~ "Oncogenic",
+                target_is_sf & driver_type=="Tumor suppressor" ~ "Tumor suppressor",
+                !target_is_sf ~ "Not SF"
+            )
+        ) %>%
+        left_join(
+            cancer_program_activity %>% 
+                distinct(PERT_ENSEMBL,PERT_GENE,activity_type,activity_diff) %>%
+                filter(activity_type=="activity_rpe1"),
+            by = c("regulator"="PERT_ENSEMBL")
+        ) %>%
+        left_join(
+            splicing_factors,
+            by = c("PERT_GENE"="GENE", "regulator"="ENSEMBL")
+        )
     
     # plot
-    plts = make_plots(cancer_program_activity, enrichments)
+    plts = make_plots(cancer_program_activity, enrichments, networks_sf_ex)
     
     # make figdata
-    figdata = make_figdata(cancer_program_activity, enrichments)
+    figdata = make_figdata(cancer_program_activity, enrichments, networks_sf_ex)
     
     # save
     save_plots(plts, figs_dir)
