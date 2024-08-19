@@ -30,6 +30,8 @@ rule all:
         # detection of tumorigenesis with single cell networks
         ## signature
         expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-genexpr.tsv.gz"), dataset=DATASETS),
+        ## GSEA
+        expand(os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz"), dataset=DATASETS[:1], ontology_oi=["hallmarks","reactome"]),
         ## compute protein activities
         ### classic
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_regulon}.tsv.gz"), dataset=DATASETS, omic_regulon=REGULON_DIRS.keys()),
@@ -88,6 +90,28 @@ rule compute_signatures:
         
         print("Done!")
         
+rule run_gsea:
+    input:
+        signature = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-genexpr.tsv.gz"),
+        msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
+        gene_info = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+    output:
+        os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz")
+    params:
+        ontology_oi = "{ontology_oi}",
+        random_seed = 1234,
+        script_dir = SRC_DIR
+    threads: 10
+    shell:
+        """
+        Rscript {params.script_dir}/gsea_on_matrix.R \
+                    --msigdb_dir={input.msigdb_dir} \
+                    --signature_file={input.signature} \
+                    --gene_info_file={input.gene_info} \
+                    --ontology_oi={params.ontology_oi} \
+                    --n_jobs={threads} \
+                    --output_file={output}
+        """
         
 rule compute_protein_activity:
     input:
@@ -104,7 +128,6 @@ rule compute_protein_activity:
                     --regulons_path={input.regulons_path} \
                     --output_file={output}
         """
-        
         
 rule predict_sf_activity_from_model:
     input:
