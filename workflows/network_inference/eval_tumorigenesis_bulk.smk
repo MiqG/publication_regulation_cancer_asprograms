@@ -33,12 +33,17 @@ OMIC_PERT_DICT = {
     "genexpr": "genexpr",
     "scgenexpr": "genexpr"
 }
+
+ONTOLOGIES = ["hallmarks","reactome"]
+
 ##### RULES #####
 rule all:
     input:
         # detection of tumorigenesis with single cell networks
         ## signature
         expand(os.path.join(RESULTS_DIR,"files","signatures","tumorigenesis-{omic_signature}.tsv.gz"), omic_signature=["EX","genexpr"]),
+        ## GSEA
+        expand(os.path.join(RESULTS_DIR,"files","gsea","tumorigenesis-{omic_signature}-{ontology_oi}.tsv.gz"), ontology_oi=ONTOLOGIES, omic_signature=["genexpr"]),
         ## compute protein activities
         ### classic
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","tumorigenesis-{omic_regulon}.tsv.gz"), omic_regulon=REGULON_DIRS.keys()),
@@ -101,6 +106,28 @@ rule compute_signatures:
         
         print("Done!")
         
+rule run_gsea:
+    input:
+        signature = os.path.join(RESULTS_DIR,"files","signatures","tumorigenesis-{omic_signature}.tsv.gz"),
+        msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
+        gene_info = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+    output:
+        os.path.join(RESULTS_DIR,"files","gsea","tumorigenesis-{omic_signature}-{ontology_oi}.tsv.gz")
+    params:
+        ontology_oi = "{ontology_oi}",
+        random_seed = 1234,
+        script_dir = SRC_DIR
+    threads: 10
+    shell:
+        """
+        Rscript {params.script_dir}/gsea_on_matrix.R \
+                    --msigdb_dir={input.msigdb_dir} \
+                    --signature_file={input.signature} \
+                    --gene_info_file={input.gene_info} \
+                    --ontology_oi={params.ontology_oi} \
+                    --n_jobs={threads} \
+                    --output_file={output}
+        """
         
 rule compute_protein_activity:
     input:

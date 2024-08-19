@@ -25,10 +25,14 @@ PERT_GENEXPR_FILES = {
 MODEL_TYPES = ["fclayer"]
 OMIC_REGULONS = ["scgenexpr"]
 GENE_SETS = ["pert_splicing_factors","pert_splicing_factors_random"]
+ONTOLOGIES = ["hallmarks","reactome"]
 
 ##### RULES #####
 rule all:
     input:
+        # GSEA
+        expand(os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys(), ontology_oi=ONTOLOGIES),
+    
         # estimate splicing factor activity
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-scgenexpr.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys()),
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX_from_model_{model_type}_and_{omic_regulon}.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys(), model_type=MODEL_TYPES, omic_regulon=OMIC_REGULONS),
@@ -40,6 +44,29 @@ rule all:
         # make figures
         #os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
         
+        
+rule run_gsea:
+    input:
+        signature = lambda wildcards: PERT_GENEXPR_FILES[wildcards.dataset],
+        msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
+        gene_info = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+    output:
+        os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz")
+    params:
+        ontology_oi = "{ontology_oi}",
+        random_seed = 1234,
+        script_dir = SRC_DIR
+    threads: 10
+    shell:
+        """
+        Rscript {params.script_dir}/gsea_on_matrix.R \
+                    --msigdb_dir={input.msigdb_dir} \
+                    --signature_file={input.signature} \
+                    --gene_info_file={input.gene_info} \
+                    --ontology_oi={params.ontology_oi} \
+                    --n_jobs={threads} \
+                    --output_file={output}
+        """
         
 rule compute_protein_activity:
     input:
