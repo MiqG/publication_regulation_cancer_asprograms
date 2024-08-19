@@ -24,17 +24,21 @@ PERT_GENEXPR_FILES = {
 
 MODEL_TYPES = ["fclayer"]
 OMIC_REGULONS = ["scgenexpr"]
+GENE_SETS = ["pert_splicing_factors","pert_splicing_factors_random"]
 
 ##### RULES #####
 rule all:
     input:
         # estimate splicing factor activity
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-scgenexpr.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys()),
-        expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX_from_model_{model_type}_and_{omic_regulon}.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys(), model_type=MODEL_TYPES, omic_regulon=OMIC_REGULONS)
+        expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX_from_model_{model_type}_and_{omic_regulon}.tsv.gz"), dataset=PERT_GENEXPR_FILES.keys(), model_type=MODEL_TYPES, omic_regulon=OMIC_REGULONS),
+        
+        # shortest paths among splicing factors
+        os.path.join(SUPPORT_DIR,'pert_splicing_factors_random-symbol.txt'),
+        expand(os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_{set_oi}.tsv.gz'), set_oi=GENE_SETS),
         
         # make figures
         #os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
-        
         
         
 rule compute_protein_activity:
@@ -106,6 +110,50 @@ rule predict_sf_activity_from_model:
         
         print("Done!")
         
+        
+rule random_gene_set:
+    input:
+        gt_gene_set = os.path.join(SUPPORT_DIR,"pert_splicing_factors-symbol.txt"),
+        avail_genes = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+    output:
+        random_gene_set = os.path.join(SUPPORT_DIR,'pert_splicing_factors_random-symbol.txt')
+    params:
+        random_seed = 1234
+    run:
+        import pandas as pd
+        
+        # load
+        gt_gene_set = pd.read_table(input.gt_gene_set, header=None)[0].to_list()
+        avail_genes = pd.read_table(input.avail_genes)
+        random_seed = params.random_seed
+        
+        # get random genes
+        n_genes = len(gt_gene_set)
+        subset = avail_genes.sample(n=n_genes, replace=False, random_state=random_seed)
+        
+        # save
+        subset[["Approved symbol"]].drop_duplicates().to_csv(output.random_gene_set, sep="\t", index=False, header=False)
+        
+        print("Done!")
+    
+    
+rule shortest_paths_stringdb:
+    input:
+        ppi = os.path.join(PREP_DIR,'ppi','STRINGDB.tsv.gz'),
+        sources = os.path.join(SUPPORT_DIR,"{set_oi}-symbol.txt"),
+        targets = os.path.join(SUPPORT_DIR,"pert_splicing_factors-symbol.txt")
+    output:
+        os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_{set_oi}.tsv.gz')
+    threads: 12
+    shell:
+        """
+        nice python scripts/ppi_path_lengths.py \
+                    --ppi_file={input.ppi} \
+                    --sources_file={input.sources} \
+                    --targets_file={input.targets} \
+                    --output_file={output} \
+                    --n_jobs={threads}
+        """ 
         
         
 rule figures_upstream_regulators:
