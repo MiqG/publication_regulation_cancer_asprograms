@@ -60,6 +60,9 @@ LAB_ORDER = list(
 # dataset = "Hodis2022-invitro_eng_melanoc"
 # figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis_singlecell-Hodis2022-invitro_eng_melanoc")
 
+# gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks.tsv.gz")
+# gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-reactome.tsv.gz")
+
 ##### FUNCTIONS #####
 plot_tumorigenesis = function(protein_activity, dataset){
     plts = list()
@@ -242,6 +245,8 @@ main = function(){
     protein_activity_fc_model_scgenexpr = read_tsv(protein_activity_fc_model_scgenexpr_file)
     metadata = read_tsv(metadata_file)
     cancer_program = read_tsv(cancer_program_file)
+    gsea_hallmarks = read_tsv(gsea_hallmarks_file)
+    gsea_reactome = read_tsv(gsea_reactome_file)
     
     # prep
     protein_activity = protein_activity_scgenexpr %>%
@@ -299,6 +304,61 @@ main = function(){
         ) %>%
         ungroup() %>%
         left_join(cancer_program, by=c("regulator"="ENSEMBL"))
+    
+    # GSEA correlations
+    ## hallmarks
+    gsea_hallmarks = gsea_hallmarks %>%
+        left_join(metadata, by=c("sampleID"="condition")) %>%
+        filter(treatment %in% LAB_ORDER[[dataset]]) %>%
+        drop_na(NES) %>%
+        left_join(
+            protein_activity %>%
+                group_by(treatment, driver_type, cell_type) %>%
+                summarize(
+                    activity = median(activity_fc_model_scgenexpr)
+                ) %>%
+                ungroup() %>%
+                drop_na(driver_type) %>%
+                pivot_wider(id_cols=c("cell_type","treatment"), names_from="driver_type", values_from="activity") %>%
+                mutate(program_fc = `Oncogenic` - `Tumor suppressor`),
+            by=c("treatment","cell_type")
+        ) %>%
+        mutate(treatment = factor(treatment, levels=LAB_ORDER[[dataset]]))
+    corrs_hallmarks = gsea_hallmarks %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_treatment = cor(NES, as.numeric(treatment), method="spearman"),
+            correlation_diff_activity = cor(NES, program_fc, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()
+    
+    ## reactome
+    gsea_reactome = gsea_reactome %>%
+        left_join(metadata, by=c("sampleID"="condition")) %>%
+        filter(treatment %in% LAB_ORDER[[dataset]]) %>%
+        drop_na(NES) %>%
+        left_join(
+            protein_activity %>%
+                group_by(treatment, driver_type, cell_type) %>%
+                summarize(
+                    activity = median(activity_fc_model_scgenexpr)
+                ) %>%
+                ungroup() %>%
+                drop_na(driver_type) %>%
+                pivot_wider(id_cols=c("cell_type","treatment"), names_from="driver_type", values_from="activity") %>%
+                mutate(program_fc = `Oncogenic` - `Tumor suppressor`),
+            by=c("treatment","cell_type")
+        ) %>%
+        mutate(treatment = factor(treatment, levels=LAB_ORDER[[dataset]]))
+    corrs_reactome = gsea_reactome %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_treatment = cor(NES, as.numeric(treatment), method="spearman"),
+            correlation_diff_activity = cor(NES, program_fc, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()
     
     # plot
     plts = make_plots(protein_activity, dataset)

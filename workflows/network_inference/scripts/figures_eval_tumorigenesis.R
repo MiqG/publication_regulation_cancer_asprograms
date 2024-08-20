@@ -40,6 +40,8 @@ ACTIVITY_TYPES = c(
 
 PAL_ACTIVITY_TYPES = setNames(get_palette("Dark2", length(ACTIVITY_TYPES)), ACTIVITY_TYPES)
 
+LAB_ORDER = c("BJ_PRIMARY","BJ_IMMORTALIZED","BJ_TRANSFORMED","BJ_METASTATIC")
+
 # Development
 # -----------
 # ROOT = here::here()
@@ -60,6 +62,9 @@ PAL_ACTIVITY_TYPES = setNames(get_palette("Dark2", length(ACTIVITY_TYPES)), ACTI
 # metadata_file = file.path(PREP_VIPER_DIR,"metadata","tumorigenesis.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis")
 
+# gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz")
+# gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-reactome.tsv.gz")
+
 ##### FUNCTIONS #####
 plot_tumorigenesis = function(protein_activity){
     plts = list()
@@ -79,8 +84,7 @@ plot_tumorigenesis = function(protein_activity){
         ) %>%
         ungroup() %>%
         mutate(cell_line_name=factor(
-            cell_line_name, levels=c("BJ_PRIMARY","BJ_IMMORTALIZED",
-                                     "BJ_TRANSFORMED","BJ_METASTATIC")
+            cell_line_name, levels=LAB_ORDER
         ))
     
     x = X %>%
@@ -224,6 +228,8 @@ main = function(){
     protein_activity_fc_model_scgenexpr = read_tsv(protein_activity_fc_model_scgenexpr_file)
     metadata = read_tsv(metadata_file)
     cancer_program = read_tsv(cancer_program_file)
+    gsea_hallmarks = read_tsv(gsea_hallmarks_file)
+    gsea_reactome = read_tsv(gsea_reactome_file)
     
     # prep
     protein_activity = protein_activity_ex %>%
@@ -289,6 +295,61 @@ main = function(){
         ) %>%
         ungroup() %>%
         left_join(cancer_program, by=c("regulator"="ENSEMBL"))
+    
+    # GSEA correlations
+    ## hallmarks
+    gsea_hallmarks = gsea_hallmarks %>%
+        left_join(metadata, by="sampleID") %>%
+        filter(cell_line_name %in% LAB_ORDER) %>%
+        drop_na(NES) %>%
+        left_join(
+            protein_activity %>%
+                group_by(cell_line_name, driver_type) %>%
+                summarize(
+                    activity = median(activity_fc_model_scgenexpr)
+                ) %>%
+                ungroup() %>%
+                drop_na(driver_type) %>%
+                pivot_wider(id_cols="cell_line_name", names_from="driver_type", values_from="activity") %>%
+                mutate(program_fc = `Oncogenic` - `Tumor suppressor`),
+            by=c("cell_line_name")
+        ) %>%
+        mutate(cell_line_name = factor(cell_line_name, levels=LAB_ORDER))
+    corrs_hallmarks = gsea_hallmarks %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_cell_line_name = cor(NES, as.numeric(cell_line_name), method="spearman"),
+            correlation_diff_activity = cor(NES, program_fc, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()
+    
+    ## reactome
+    gsea_reactome = gsea_reactome %>%
+        left_join(metadata, by="sampleID") %>%
+        filter(cell_line_name %in% LAB_ORDER) %>%
+        drop_na(NES) %>%
+        left_join(
+            protein_activity %>%
+                group_by(cell_line_name, driver_type) %>%
+                summarize(
+                    activity = median(activity_fc_model_scgenexpr)
+                ) %>%
+                ungroup() %>%
+                drop_na(driver_type) %>%
+                pivot_wider(id_cols="cell_line_name", names_from="driver_type", values_from="activity") %>%
+                mutate(program_fc = `Oncogenic` - `Tumor suppressor`),
+            by="cell_line_name"
+        ) %>%
+        mutate(cell_line_name = factor(cell_line_name, levels=LAB_ORDER))
+    corrs_reactome = gsea_reactome %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_cell_line_name = cor(NES, as.numeric(cell_line_name), method="spearman"),
+            correlation_diff_activity = cor(NES, program_fc, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()
     
     # plot
     plts = make_plots(protein_activity)

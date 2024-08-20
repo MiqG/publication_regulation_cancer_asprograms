@@ -67,6 +67,8 @@ PAL_DRIVER_TYPE = c(
 # shortest_paths_pert_sfs_file = file.path(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors.tsv.gz')
 # shortest_paths_random_file = file.path(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz')
 
+# gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz")
+# gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-reactome.tsv.gz")
 
 ##### FUNCTIONS #####
 load_ontologies = function(msigdb_dir, cosmic_genes_file){
@@ -650,6 +652,9 @@ main = function(){
     shortest_paths_pert_sfs = read_tsv(shortest_paths_pert_sfs_file)
     shortest_paths_random = read_tsv(shortest_paths_random_file)
     
+    gsea_hallmarks = read_tsv(gsea_hallmarks_file)
+    gsea_reactome = read_tsv(gsea_reactome_file)
+    
     # prep
     gene_info = gene_info %>%
         mutate(PERT_GENE = `Approved symbol`) %>%
@@ -798,6 +803,35 @@ main = function(){
             )
         )
     
+    # GSEA correlations
+    ## hallmarks
+    gsea_hallmarks = gsea_hallmarks %>%
+        drop_na(NES) %>%
+        left_join(
+            cancer_program_activity %>% filter(activity_type=="activity_rpe1"), 
+            by=c("sampleID"="PERT_ENSEMBL")
+        )
+    corrs_hallmarks = gsea_hallmarks %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_diff_activity = cor(NES, activity_diff, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()
+    ## reactome
+    gsea_reactome = gsea_reactome %>%
+        drop_na(NES) %>%
+        left_join(
+            cancer_program_activity %>% filter(activity_type=="activity_rpe1"), 
+            by=c("sampleID"="PERT_ENSEMBL")
+        )
+    corrs_reactome = gsea_reactome %>%
+        group_by(Description) %>%
+        summarize(
+            correlation_diff_activity = cor(NES, activity_diff, method="spearman"),
+            n_obs = n()
+        ) %>%
+        ungroup()    
     # plot
     plts = make_plots(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs)
     
