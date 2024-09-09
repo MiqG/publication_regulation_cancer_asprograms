@@ -39,8 +39,8 @@ PAL_FDR_DARK = "#005AB5"
 PAL_FDR_LIGHT = "#DC3220"
 
 PAL_DRIVER_TYPE = c(
-    "Tumor suppressor"="#6C98B3",
-    "Oncogenic"="#F6AE2D"
+    "Oncogenic"="#F6AE2D",
+    "Tumor suppressor"="#6C98B3"
 )
 # Development
 # -----------
@@ -481,7 +481,7 @@ plot_sf_network_analysis = function(networks_sf_ex){
     plts[["sf_network_analysis-target_type_freq_vs_activity_diff-scatter"]] = x %>%
         drop_na(perc, activity_diff) %>%
         ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="target_type") +
-        color_palette(as.vector(c("darkred","darkgreen",PAL_DRIVER_TYPE))) +
+        color_palette(as.vector(c("darkred","darkgreen",rev(PAL_DRIVER_TYPE)))) +
         stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
         #geom_smooth(method="lm", size=LINE_SIZE, color="black", linetype="dashed") +
         facet_wrap(~target_type, scales="free") +
@@ -489,24 +489,6 @@ plot_sf_network_analysis = function(networks_sf_ex){
         guides(color="none") +
         labs(x="% Target Genes", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    x = X %>%
-        #filter(target_is_sf & !is.na(driver_type)) %>%
-        mutate(
-            sf_class = case_when(
-                !is.na(spliceosome_db_complex) ~ "Core",
-                in_go_rbp ~ "RBP",
-                TRUE ~ "Other"
-            )
-        ) %>%
-        distinct(target_type,sf_class,GENE) %>%
-        count(target_type,sf_class) %>%
-        group_by(sf_class) %>%
-        mutate(
-            n_total = sum(n),
-            perc = 100 * n / n_total
-        ) %>%
-        ungroup() %>%
-        
     return(plts)
 }
 
@@ -547,7 +529,7 @@ make_plots = function(cancer_program_activity, enrichments, networks_sf_ex, shor
 
 make_figdata = function(cancer_program_activity, enrichments,  networks_sf_ex, shortest_paths_pert_sfs){
     figdata = list(
-        "eval_bulk_vs_singlecell" = list(
+        "upstream_regulators" = list(
             "cancer_program_activity" = cancer_program_activity
         )
     )
@@ -651,9 +633,6 @@ main = function(){
     
     shortest_paths_pert_sfs = read_tsv(shortest_paths_pert_sfs_file)
     shortest_paths_random = read_tsv(shortest_paths_random_file)
-    
-    gsea_hallmarks = read_tsv(gsea_hallmarks_file)
-    gsea_reactome = read_tsv(gsea_reactome_file)
     
     # prep
     gene_info = gene_info %>%
@@ -803,35 +782,6 @@ main = function(){
             )
         )
     
-    # GSEA correlations
-    ## hallmarks
-    gsea_hallmarks = gsea_hallmarks %>%
-        drop_na(NES) %>%
-        left_join(
-            cancer_program_activity %>% filter(activity_type=="activity_rpe1"), 
-            by=c("sampleID"="PERT_ENSEMBL")
-        )
-    corrs_hallmarks = gsea_hallmarks %>%
-        group_by(Description) %>%
-        summarize(
-            correlation_diff_activity = cor(NES, activity_diff, method="spearman"),
-            n_obs = n()
-        ) %>%
-        ungroup()
-    ## reactome
-    gsea_reactome = gsea_reactome %>%
-        drop_na(NES) %>%
-        left_join(
-            cancer_program_activity %>% filter(activity_type=="activity_rpe1"), 
-            by=c("sampleID"="PERT_ENSEMBL")
-        )
-    corrs_reactome = gsea_reactome %>%
-        group_by(Description) %>%
-        summarize(
-            correlation_diff_activity = cor(NES, activity_diff, method="spearman"),
-            n_obs = n()
-        ) %>%
-        ungroup()    
     # plot
     plts = make_plots(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs)
     

@@ -44,7 +44,6 @@ rule all:
         # make figures
         #os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
         
-        
 rule run_gsea:
     input:
         signature = lambda wildcards: PERT_GENEXPR_FILES[wildcards.dataset],
