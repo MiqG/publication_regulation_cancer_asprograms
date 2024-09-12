@@ -14,10 +14,15 @@ require(extrafont)
 require(ggrepel)
 require(clusterProfiler)
 require(scattermore)
+require(ComplexHeatmap)
+require(ggplotify)
+require(ggvenn)
 
 # variables
 LABS_BULK = c("BJ_PRIMARY","BJ_IMMORTALIZED","BJ_TRANSFORMED","BJ_METASTATIC")
 LABS_SC = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA')
+
+RANDOM_SEED = 1234
 
 # formatting
 LINE_SIZE = 0.25
@@ -34,8 +39,14 @@ PAL_FDR_DARK = "#005AB5"
 PAL_FDR_LIGHT = "#DC3220"
 
 PAL_DRIVER_TYPE = c(
-    "Oncogenic"="#F6AE2D",
-    "Tumor suppressor"="#6C98B3"
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
+)
+PAL_GENE_TYPE = c(
+    "Not SF"="darkgreen",
+    "Non-driver SF"="darkred",
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
 )
 PAL_DATASETS = c(
     "Danielsson2013-fibroblasts"="#1729AD",
@@ -50,25 +61,32 @@ PAL_DATASETS = c(
 # SUPPORT_DIR = file.path(ROOT,"support")
 # NETWORKS_DIR = file.path(ROOT,"results","network_inference") 
 # RESULTS_DIR = file.path(ROOT,"results","program_regulation")
-
 # carcinogenesis_bulk_activity_file = file.path(NETWORKS_DIR,"figures","eval_tumorigenesis","figdata","eval_tumorigenesis","protein_activity.tsv.gz")
 # carcinogenesis_bulk_hallmarks_file = file.path(NETWORKS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz")
-
 # carcinogenesis_singlecell_activity_file = file.path(NETWORKS_DIR,"figures","eval_tumorigenesis_singlecell-Hodis2022-invitro_eng_melanoc","figdata","eval_tumorigenesis_singlecell","protein_activity.tsv.gz")
 # carcinogenesis_singlecell_hallmarks_file = file.path(NETWORKS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks.tsv.gz")
-
 # pertseq_activity_file = file.path(RESULTS_DIR,"figures","upstream_regulators","figdata","upstream_regulators","cancer_program_activity.tsv.gz")
 # pertseq_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz")
-
 # PREP_VIPER_DIR = file.path(dirname(ROOT),"publication_viper_splicing","data","prep")
 # carcinogenesis_bulk_metadata_file = file.path(PREP_VIPER_DIR,"metadata","tumorigenesis.tsv.gz")
-
 # carcinogenesis_singlecell_metadata_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz")
+# msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
+# splicing_factors_file = file.path(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
+# cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
 
 # figs_dir = file.path(RESULTS_DIR,"figures","gsea_carcinogenesis")
 
 ##### FUNCTIONS #####
-plot_corrs = function(corrs, experiments){
+load_ontologies = function(msigdb_dir){
+    ontologies = list(
+        "hallmarks" = read.gmt(file.path(msigdb_dir,"h.all.v7.4.symbols.gmt")),
+        "reactome" = read.gmt(file.path(msigdb_dir,"c2.cp.reactome.v7.4.symbols.gmt")),
+        "GO_BP" = read.gmt(file.path(msigdb_dir,"c5.go.bp.v7.4.symbols.gmt"))
+    )
+    return(ontologies)
+}
+
+plot_corrs = function(corrs, experiments, ontologies, cancer_program){
     plts = list()
     
     X = corrs
@@ -87,147 +105,281 @@ plot_corrs = function(corrs, experiments){
         guides(fill="none") +
         labs(x="Dataset", y="Pearson Correlation")
     
-    # line plots top correlations during carcinogenesis
-    ## bulk
-    pathways_oi = X %>%
-        filter(dataset=="Danielsson2013-fibroblasts") %>%
-        slice_max(correlation_diff_activity, n=5)
-    x = experiments %>%
-        filter(dataset=="Danielsson2013-fibroblasts") %>%
-        filter(Description %in% pathways_oi[["Description"]]) %>%
-        pivot_longer(cols=c("NES","activity_diff")) %>%
-        distinct(cell_line_name, Description, value, name) %>%
-        mutate(Description = ifelse(name=="activity_diff", "switch", Description)) %>%
-        distinct(cell_line_name, Description, value, name) %>%
-        left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description") %>%
-        mutate(
-            correlation_diff_activity = ifelse(name=="activity_diff", 1, correlation_diff_activity),
-            corr_class = cut(correlation_diff_activity, breaks = 10)
-        )
-    plts[["corrs-stage_vs_act_diff_and_enrichment-bulk-line"]] = x %>%
-        ggplot(aes(x=cell_line_name, y=value, group=Description)) +
-        geom_line(aes(color=corr_class)) +
-        geom_text_repel(
-            aes(label=Description, color=corr_class),
-            . %>% group_by(Description) %>% slice_max(cell_line_name),
-            size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1,
-            max.overlaps=50
+    # bulk vs single cell
+    plts[["corrs-bulk_vs_singlecell-scatter"]] = X %>%
+        filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
+        pivot_wider(id_cols="Description", names_from="dataset", values_from="correlation_diff_activity") %>%
+        rowwise() %>%
+        mutate(avg_corr = mean(c(`Danielsson2013-fibroblasts`,`Hodis2022-invitro_eng_melanoc`)) ) %>%
+        ungroup() %>%
+        ggscatter(
+            x="Danielsson2013-fibroblasts", y="Hodis2022-invitro_eng_melanoc", 
+            alpha=0.5, size=1, color=PAL_DARK
         ) +
-        theme_pubr() +
-        facet_wrap(~name, ncol=1) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        color_palette(get_palette(c("grey","#1729AD"), 4)) +
-        labs(x="Carcinogenic Stage", y="NES or DeltaActivity", color="Pearson Correlation")
-    
-    ## single cell
-    pathways_oi = X %>%
-        filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
-        slice_max(correlation_diff_activity, n=5)
-    x = experiments %>%
-        filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
-        filter(Description %in% pathways_oi[["Description"]]) %>%
-        pivot_longer(cols=c("NES","activity_diff")) %>%
-        distinct(treatment, Description, value, name) %>%
-        mutate(Description = ifelse(name=="activity_diff", "switch", Description)) %>%
-        distinct(treatment, Description, value, name) %>%
-        left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description") %>%
-        mutate(
-            correlation_diff_activity = ifelse(name=="activity_diff", 1, correlation_diff_activity),
-            corr_class = cut(correlation_diff_activity, breaks = 10)
-        )
-    plts[["corrs-stage_vs_act_diff_and_enrichment-singlecell-line"]] = x %>%
-        ggplot(aes(x=treatment, y=value, group=Description)) +
-        geom_line(aes(color=corr_class)) +
-        geom_text_repel(
-            aes(label=Description, color=corr_class),
-            . %>% group_by(Description) %>% slice_max(treatment),
-            size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1,
-            max.overlaps=50
-        ) +
-        theme_pubr() +
-        facet_wrap(~name, ncol=1) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        color_palette(get_palette(c("grey","#FE5F55"), 3)) +
-        labs(x="Carcinogenic Stage", y="NES or DeltaActivity", color="Pearson Correlation")
-           
-    # top correlations with splicing switch
-    ## bulk
-    plts[["corrs-nes_vs_activity_diff-bulk-bar"]] = X %>%
-        filter(dataset=="Danielsson2013-fibroblasts") %>%
-        slice_max(correlation_diff_activity, n=10) %>%
-        ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
-        labs(x="MSigDB Hallmark", y="Pearson Correlation") +
-        guides(fill="none") +
-        coord_flip() +
-        scale_x_discrete(limits=rev) +
-        scale_fill_gradient(low="black", high="#1729AD")
-    
-    ## singlecell
-    plts[["corrs-nes_vs_activity_diff-siglecell-bar"]] = X %>%
-        filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
-        slice_max(correlation_diff_activity, n=10) %>%
-        ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
-        labs(x="MSigDB Hallmark", y="Pearson Correlation") +
-        guides(fill="none") +
-        coord_flip() +
-        scale_x_discrete(limits=rev) +
-        scale_fill_gradient(low="black", high="#FE5F55")
-    
-    ## pert seq
-    plts[["corrs-nes_vs_activity_diff-pertseq-bar"]] = X %>%
-        filter(dataset=="ReplogleWeissman2022_rpe1") %>%
-        slice_max(correlation_diff_activity, n=5) %>%
-        ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
-        labs(x="MSigDB Hallmark", y="Pearson Correlation") +
-        guides(fill="none") +
-        coord_flip() +
-        scale_x_discrete(limits=rev) +
-        scale_fill_gradient(low="grey", high="#12664F")
-    
-    # relationship delta activity with NES
-    pathways_oi = X %>%
-        filter(dataset=="ReplogleWeissman2022_rpe1") %>%
-        slice_max(correlation_diff_activity, n=5)
-    x = experiments %>%
-        filter(dataset=="ReplogleWeissman2022_rpe1") %>%
-        filter(Description %in% pathways_oi[["Description"]]) %>% 
-        left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description")
-    
-    plts[["corrs-nes_vs_activity_diff-pertseq-scatter"]] = x %>%
-        mutate(Description = fct_reorder(Description, -correlation_diff_activity)) %>%
-        ggscatter(x="NES", y="activity_diff", color="correlation_diff_activity", alpha=0.2) +
-        facet_wrap(~Description, nrow=1) +
-        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        # geom_text_repel(
+        #     aes(label=Description),
+        #     . %>% slice_max(abs(avg_corr), n=10),
+        #     size=FONT_SIZE+2, family=FONT_FAMILY, segment.size=0.1,
+        #     max.overlaps=50
+        # ) +
         stat_cor(method="pearson", size=FONT_SIZE, family=FONT_FAMILY) +
-        guides(color="none") +
-        scale_color_gradient(low="grey", high="#12664F")
+        geom_abline(intercept=0, slope=1, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        theme(aspect.ratio=1)
     
+    x = X %>%
+        group_by(Description) %>%
+        filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
+        mutate(avg_corr = mean(correlation_diff_activity)) %>%
+        ungroup() %>%
+        slice_max(abs(avg_corr), n=20) %>%
+        mutate(Description = fct_reorder(Description, avg_corr))
     
+    plts[["corrs-bulk_vs_singlecell-bar"]] = x %>%
+        ggbarplot(x="Description", y="correlation_diff_activity", color=NA, fill="dataset", 
+                  palette=PAL_DATASETS, position=position_dodge(0.9)) +
+        labs(x="Top Correlating Hallmark", y="Pearson Correlation", fill="") +
+        coord_flip()
     
+    # ranges of enrichments in perturb seq for selected pathways
+    plts[["corrs-term_vs_nes-pertseq-violin"]] = experiments %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
+        mutate(Description = factor(Description, levels=levels(x[["Description"]]))) %>%
+        distinct(Description, PERT_GENE, NES, dataset) %>%
+        drop_na() %>%
+        ggviolin(x="Description", y="NES", trim=TRUE, color=NA, fill="dataset", palette=PAL_DATASETS) +
+        geom_text(
+            aes(y=5, label=label),
+            . %>% count(Description) %>% mutate(label=sprintf("n=%s",n)),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        guides(fill="none") +
+        labs(x="Top Correlating Hallmark", y="Perturb-seq NES") +
+        coord_flip()
     
+    # correlations (co-linearity) between NES across perturb seq for selected pathways
+    nes_oi = experiments %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
+        distinct(Description, PERT_GENE, NES, dataset, activity_diff) %>%
+        drop_na()
+    mat = nes_oi %>%
+        pivot_wider(id_cols="PERT_GENE", names_from="Description", values_from="NES") %>%
+        column_to_rownames("PERT_GENE") %>%
+        cor(method="pearson", use="pairwise.complete.obs")
     
+    plts[["corrs-nes_corrmat-heatmap"]] = mat %>% 
+        Heatmap(
+            name="Pearson Corr.",
+            row_names_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY),
+            column_names_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY),
+            heatmap_legend_param = list(legend_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY)),
+            cell_fun = function(j, i, x, y, width, height, fill) {
+                    grid.text(sprintf("%.2f", mat[i, j]), x, y, 
+                              gp = gpar(fontsize=6, fontfamily=FONT_FAMILY))
+        }) %>% 
+        draw() %>%
+        grid.grabExpr() %>%
+        as.ggplot()
     
-    
-    
-    %>%
-        pivot_longer(cols=c("NES","activity_diff")) %>%
-        distinct(treatment, Description, value, name) %>%
-        mutate(Description = ifelse(name=="activity_diff", "switch", Description)) %>%
-        distinct(treatment, Description, value, name) %>%
-        left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description") %>%
+    # linear model: activity_diff ~ pathways
+    pathways_oi = nes_oi %>% distinct(Description) %>% pull(Description)
+    f = sprintf("%s ~ %s", "activity_diff", paste(pathways_oi, collapse="+"))
+    data = nes_oi %>%
+        pivot_wider(id_cols=c("PERT_GENE","activity_diff"), names_from="Description", values_from="NES")
+    fit = lm(formula=as.formula(f), data=data)
+    result = broom::tidy(fit)
+    plts[["corrs-nes_lm_coefs-bar"]] = result %>% 
         mutate(
-            correlation_diff_activity = ifelse(name=="activity_diff", 1, correlation_diff_activity),
-            corr_class = cut(correlation_diff_activity, breaks = 10)
-        )
-        
+            term = factor(term, levels=levels(x[["Description"]])),
+            dataset = "ReplogleWeissman2022_rpe1",
+            p.value = format.pval(p.value, 2)
+        ) %>%
+        ggbarplot(x="term", y="estimate", color=NA, fill="dataset", palette=PAL_DATASETS) +
+        geom_text(aes(y=0.4, label=p.value), size=FONT_SIZE, family=FONT_FAMILY) +
+        guides(fill="none") +
+        labs(x="Model Variable (Top Hallmarks)", y="Fitted Coefficient") +
+        coord_flip()
+    
+    # venn diagram with overlaps between MYC v1 and v2
+    plts[["corrs-overlap_myc_sets-venn"]] = ontologies[["hallmarks"]] %>%
+        filter(term %in% c("HALLMARK_MYC_TARGETS_V1","HALLMARK_MYC_TARGETS_V2")) %>%
+        bind_rows(
+            splicing_factors %>%
+                mutate(
+                    term = "SFs",
+                    gene = GENE
+                ) %>%
+                distinct(term,gene)
+        ) %>%
+        mutate(in_pathway=TRUE) %>%
+        pivot_wider(id_cols="gene", names_from="term", values_from="in_pathway", values_fill=FALSE) %>%
+        ggplot(aes(A=HALLMARK_MYC_TARGETS_V1, B=HALLMARK_MYC_TARGETS_V2, C=SFs)) +
+        geom_venn(stroke_color=NA, 
+                  fill_color=c("blue","lightblue","darkblue"),
+                  set_name_size = FONT_SIZE+0.5, text_size = FONT_SIZE) +
+        coord_fixed() +
+        theme_void()
+    
+    # distribution of sfs_oi in perturb-seq
+    sfs_oi = c("CBX3","DDX18")
+    experiments %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1") %>%
+        distinct(PERT_GENE, activity_diff) %>%
+        arrange(-activity_diff) %>%
+        mutate(
+            ranking = row_number(),
+            is_sf_oi = PERT_GENE %in% sfs_oi,
+            is_oncogenic = PERT_GENE %in% (cancer_program %>% filter(driver_type=="Oncogenic") %>% pull(GENE))
+        ) %>%
+        filter(is_oncogenic) %>%
+        ggscatter(x="ranking", y="activity_diff", color="is_sf_oi") +
+        geom_point(data=.%>%filter(is_sf_oi))
+    
+    
+#     # line plots top correlations during carcinogenesis
+#     ## bulk
+#     pathways_oi = X %>%
+#         filter(dataset=="Danielsson2013-fibroblasts") %>%
+#         slice_max(correlation_diff_activity, n=5)
+#     x = experiments %>%
+#         filter(dataset=="Danielsson2013-fibroblasts") %>%
+#         filter(Description %in% pathways_oi[["Description"]]) %>%
+#         pivot_longer(cols=c("NES","activity_diff")) %>%
+#         distinct(cell_line_name, Description, value, name) %>%
+#         mutate(Description = ifelse(name=="activity_diff", "switch", Description)) %>%
+#         distinct(cell_line_name, Description, value, name) %>%
+#         left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description") %>%
+#         mutate(
+#             correlation_diff_activity = ifelse(name=="activity_diff", 1, correlation_diff_activity),
+#             corr_class = cut(correlation_diff_activity, breaks = 10)
+#         )
+#     plts[["corrs-stage_vs_act_diff_and_enrichment-bulk-line"]] = x %>%
+#         ggplot(aes(x=cell_line_name, y=value, group=Description)) +
+#         geom_line(aes(color=corr_class)) +
+#         geom_text_repel(
+#             aes(label=Description, color=corr_class),
+#             . %>% group_by(Description) %>% slice_max(cell_line_name),
+#             size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1,
+#             max.overlaps=50
+#         ) +
+#         theme_pubr() +
+#         facet_wrap(~name, ncol=1) +
+#         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+#         color_palette(get_palette(c("grey","#1729AD"), 4)) +
+#         labs(x="Carcinogenic Stage", y="NES or DeltaActivity", color="Pearson Correlation")
+    
+#     ## single cell
+#     pathways_oi = X %>%
+#         filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
+#         slice_max(correlation_diff_activity, n=5)
+#     x = experiments %>%
+#         filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
+#         filter(Description %in% pathways_oi[["Description"]]) %>%
+#         pivot_longer(cols=c("NES","activity_diff")) %>%
+#         distinct(treatment, Description, value, name) %>%
+#         mutate(Description = ifelse(name=="activity_diff", "switch", Description)) %>%
+#         distinct(treatment, Description, value, name) %>%
+#         left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description") %>%
+#         mutate(
+#             correlation_diff_activity = ifelse(name=="activity_diff", 1, correlation_diff_activity),
+#             corr_class = cut(correlation_diff_activity, breaks = 10)
+#         )
+#     plts[["corrs-stage_vs_act_diff_and_enrichment-singlecell-line"]] = x %>%
+#         ggplot(aes(x=treatment, y=value, group=Description)) +
+#         geom_line(aes(color=corr_class)) +
+#         geom_text_repel(
+#             aes(label=Description, color=corr_class),
+#             . %>% group_by(Description) %>% slice_max(treatment),
+#             size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1,
+#             max.overlaps=50
+#         ) +
+#         theme_pubr() +
+#         facet_wrap(~name, ncol=1) +
+#         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+#         color_palette(get_palette(c("grey","#FE5F55"), 3)) +
+#         labs(x="Carcinogenic Stage", y="NES or DeltaActivity", color="Pearson Correlation")
+           
+#     # top correlations with splicing switch
+#     ## bulk
+#     plts[["corrs-nes_vs_activity_diff-bulk-bar"]] = X %>%
+#         filter(dataset=="Danielsson2013-fibroblasts") %>%
+#         slice_max(correlation_diff_activity, n=10) %>%
+#         ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
+#         labs(x="MSigDB Hallmark", y="Pearson Correlation") +
+#         guides(fill="none") +
+#         coord_flip() +
+#         scale_x_discrete(limits=rev) +
+#         scale_fill_gradient(low="black", high="#1729AD")
+    
+#     ## singlecell
+#     plts[["corrs-nes_vs_activity_diff-siglecell-bar"]] = X %>%
+#         filter(dataset=="Hodis2022-invitro_eng_melanoc") %>%
+#         slice_max(correlation_diff_activity, n=10) %>%
+#         ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
+#         labs(x="MSigDB Hallmark", y="Pearson Correlation") +
+#         guides(fill="none") +
+#         coord_flip() +
+#         scale_x_discrete(limits=rev) +
+#         scale_fill_gradient(low="black", high="#FE5F55")
+    
+#     ## pert seq
+#     plts[["corrs-nes_vs_activity_diff-pertseq-bar"]] = X %>%
+#         filter(dataset=="ReplogleWeissman2022_rpe1") %>%
+#         slice_max(correlation_diff_activity, n=5) %>%
+#         ggbarplot(x="Description", y="correlation_diff_activity", fill="correlation_diff_activity", color=NA) +
+#         labs(x="MSigDB Hallmark", y="Pearson Correlation") +
+#         guides(fill="none") +
+#         coord_flip() +
+#         scale_x_discrete(limits=rev) +
+#         scale_fill_gradient(low="grey", high="#12664F")
+    
+#     # relationship delta activity with NES
+#     pathways_oi = X %>%
+#         filter(dataset=="ReplogleWeissman2022_rpe1") %>%
+#         slice_max(correlation_diff_activity, n=5)
+#     x = experiments %>%
+#         filter(dataset=="ReplogleWeissman2022_rpe1") %>%
+#         filter(Description %in% pathways_oi[["Description"]]) %>% 
+#         left_join(pathways_oi %>% distinct(Description, correlation_diff_activity), by="Description")
+    
+#     plts[["corrs-nes_vs_activity_diff-pertseq-scatter"]] = x %>%
+#         mutate(Description = fct_reorder(Description, -correlation_diff_activity)) %>%
+#         ggscatter(x="NES", y="activity_diff", color="gene_type", alpha=0.2) +
+#         facet_wrap(~Description+gene_type, nrow=4) +
+#         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+#         stat_cor(method="pearson", size=FONT_SIZE, family=FONT_FAMILY) +
+#         guides(color="none") +
+#         scale_color_gradient(low="grey", high="#12664F") 
+    
+#     pathways_oi = c("HALLMARK_MYC_TARGETS_V2","HALLMARK_MYC_TARGETS_V1")
+#     comparisons = list(
+#         c("Not SF","Non-driver SF"),c("Not SF","Tumor suppressor"),c("Not SF","Oncogenic"),
+#         c("Non-driver SF","Tumor suppressor"),c("Non-driver SF","Oncogenic")
+#     )
+#     plts[["corrs-gene_type_vs_nes-pertseq-violin"]] = x %>%
+#         drop_na(gene_type) %>%
+#         filter(Description %in% pathways_oi) %>%
+#         group_by(gene_type, PERT_GENE) %>%
+#         summarize(NES = mean(NES), n_obs = n()) %>%
+#         ungroup() %>%
+#         mutate(gene_type = factor(gene_type, levels=names(PAL_GENE_TYPE))) %>%
+#         ggviolin(x="gene_type", y="NES", fill="gene_type", color=NA, trim=TRUE,
+#                  palette=PAL_GENE_TYPE, add="median_iqr", add.params=list(color="black", size=0.1)) +
+#         geom_text(
+#             aes(y=-5, label=label),
+#             . %>% count(gene_type) %>% mutate(label=sprintf("n=%s",n)),
+#             size=FONT_SIZE, family=FONT_FAMILY
+#         ) +
+#         stat_compare_means(comparisons=comparisons, method="wilcox.test", size=FONT_SIZE+2, family=FONT_FAMILY) +
+#         guides(fill="none") +
+#         labs(x="", y="MYC Targets NES Avg.")
     
     return(plts)
 }
 
 
-make_plots = function(corrs, experiments){
+make_plots = function(corrs, experiments, ontologies, cancer_program){
     plts = list(
-        plot_corrs(corrs, experiments)
+        plot_corrs(corrs, experiments, ontologies, cancer_program)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -259,9 +411,12 @@ save_plt = function(plts, plt_name, extension='.pdf',
 }
 
 save_plots = function(plts, figs_dir){
-    save_plt(plts, "corrs-nes_vs_activity_diff-bulk", '.pdf', figs_dir, width=7.5, height=4)
-    save_plt(plts, "corrs-nes_vs_activity_diff-singlecell", '.pdf', figs_dir, width=7.5, height=4)
-    save_plt(plts, "corrs-nes_vs_activity_diff-pertseq", '.pdf', figs_dir, width=7.5, height=4)
+    save_plt(plts, "corrs-nes_vs_activity_diff-violin", '.pdf', figs_dir, width=4, height=4)
+    save_plt(plts, "corrs-bulk_vs_singlecell-scatter", '.pdf', figs_dir, width=4, height=4)
+    save_plt(plts, "corrs-bulk_vs_singlecell-bar", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "corrs-term_vs_nes-pertseq-violin", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "corrs-nes_lm_coefs-bar", '.pdf', figs_dir, width=7, height=5.5)
+    save_plt(plts, "corrs-overlap_myc_sets-venn", '.pdf', figs_dir, width=5, height=5)
 }
 
 
@@ -288,6 +443,8 @@ parseargs = function(){
         make_option("--carcinogenesis_singlecell_hallmarks_file", type="character"),
         make_option("--pertseq_activity_file", type="character"),
         make_option("--pertseq_hallmarks_file", type="character"),
+        make_option("--msigdb_dir", type="character"),
+        make_option("--splicing_factors_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -306,9 +463,12 @@ main = function(){
     carcinogenesis_singlecell_hallmarks_file = args[["carcinogenesis_singlecell_hallmarks_file"]]
     pertseq_activity_file = args[["pertseq_activity_file"]]
     pertseq_hallmarks_file = args[["pertseq_hallmarks_file"]]
+    msigdb_dir = args[["msigdb_dir"]]
+    splicing_factors_file = args[["splicing_factors_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
+    set.seed(RANDOM_SEED)
     
     # load
     carcinogenesis_bulk_activity = read_tsv(carcinogenesis_bulk_activity_file)
@@ -319,6 +479,9 @@ main = function(){
     carcinogenesis_singlecell_hallmarks = read_tsv(carcinogenesis_singlecell_hallmarks_file)
     pertseq_activity = read_tsv(pertseq_activity_file)
     pertseq_hallmarks = read_tsv(pertseq_hallmarks_file)
+    ontologies = load_ontologies(msigdb_dir)
+    splicing_factors = read_tsv(splicing_factors_file)
+    cancer_program = read_tsv(cancer_program_file)
     
     # prep: combine activity and hallmarks
     ## bulk carcinogenesis
@@ -415,11 +578,57 @@ main = function(){
         ungroup()
     
     # merge
-    experiments = bind_rows(carcinogenesis_bulk, carcinogenesis_singlecell, pertseq)
+    experiments = bind_rows(carcinogenesis_bulk, carcinogenesis_singlecell, pertseq) %>%
+        mutate(
+            is_sf = PERT_GENE %in% splicing_factors[["GENE"]],
+            gene_type = case_when(
+                is_sf & is.na(driver_type) ~ "Non-driver SF",
+                is_sf & driver_type=="Oncogenic" ~ "Oncogenic",
+                is_sf & driver_type=="Tumor suppressor" ~ "Tumor suppressor",
+                !is_sf & !is.na(PERT_GENE) ~ "Not SF"
+            )
+        )
     corrs = bind_rows(corrs_bulk, corrs_singlecell, corrs_pertseq)
     
+    # enrichment
+    hallmarks_oi = c("HALLMARK_MYC_TARGETS_V2","HALLMARK_MYC_TARGETS_V1")
+    genes = experiments %>% 
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description%in%hallmarks_oi) %>% 
+        distinct(NES,PERT_GENE,Description) %>%
+        group_by(PERT_GENE) %>%
+        summarize(NES=mean(NES)) %>%
+        ungroup() %>%
+        arrange(-NES) %>% 
+        distinct(PERT_GENE, NES) %>%
+        drop_na(PERT_GENE) %>% 
+        deframe() 
+    enrichment = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
+    ## perturbing cell cycle genes activates MYC pathways
+    ## perturbing splicing factors does not specifically activate MYC pathways
+    ## but, across perturbations the activations of the switch and MYC pathways also correlate
+    
+    # MYC knockdown does not alter the switch
+    experiments %>% filter(PERT_GENE=="MYC") %>% distinct(PERT_GENE, activity_diff)
+    
+    # sort PERT_GENES by distances from perfect correlation between average MYC NES and switch
+    x = experiments %>% 
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description%in%hallmarks_oi) %>% 
+        distinct(NES,PERT_GENE,Description, activity_diff) %>%
+        group_by(PERT_GENE, activity_diff) %>%
+        summarize(NES=mean(NES)) %>%
+        ungroup() %>%
+        mutate(
+            NES = (NES - mean(NES))/sd(NES),
+            activity_diff = (activity_diff - mean(activity_diff))/sd(activity_diff)
+        ) %>%
+        drop_na(PERT_GENE)
+    fit = lm(activity_diff ~ NES, data=x)
+    genes = setNames(1/abs(fit[["residuals"]]), x[["PERT_GENE"]])
+    genes = sort(genes, decreasing=TRUE)
+    enrichment = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED, scoreType="pos")
+    
     # plot
-    plts = make_plots(corrs, experiments)
+    plts = make_plots(corrs, experiments, ontologies, cancer_program)
     
     # make figdata
     figdata = make_figdata(corrs)

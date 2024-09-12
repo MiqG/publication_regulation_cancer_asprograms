@@ -23,6 +23,7 @@ COSMIC_DRIVER_TYPES = c(
     "COSMIC Dual"
 )
 
+RANDOM_SEED = 1234
 
 # formatting
 LINE_SIZE = 0.25
@@ -41,6 +42,12 @@ PAL_FDR_LIGHT = "#DC3220"
 PAL_DRIVER_TYPE = c(
     "Oncogenic"="#F6AE2D",
     "Tumor suppressor"="#6C98B3"
+)
+PAL_GENE_TYPE = c(
+    "Not SF"="darkgreen",
+    "Non-driver SF"="darkred",
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
 )
 # Development
 # -----------
@@ -102,7 +109,7 @@ plot_program_activity = function(cancer_program_activity){
     X = cancer_program_activity
     x = X %>%
         pivot_wider(
-            id_cols=c("PERT_ENSEMBL","PERT_GENE","cosmic_driver_type","target_in_cosmic","driver_type"), 
+            id_cols=c("PERT_ENSEMBL","PERT_GENE","cosmic_driver_type","target_in_cosmic","driver_type","gene_type"), 
             names_from="activity_type", values_from="activity_diff"
         )
     
@@ -313,15 +320,20 @@ plot_program_activity = function(cancer_program_activity){
         labs(x="COSMIC Driver Type", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
 
     
-    comparisons = list(c("Tumor suppressor", "Oncogenic"))
+    comparisons = list(
+        c("Not SF","Non-driver SF"),c("Not SF","Tumor suppressor"),c("Not SF","Oncogenic"),
+        c("Non-driver SF","Tumor suppressor"),c("Non-driver SF","Oncogenic"),
+        c("Tumor suppressor", "Oncogenic")
+    )
     plts[["program_activity-diff_vs_splicing_program-violin"]] = X %>%
-        filter(!is.na(driver_type)) %>%
-        ggviolin(x="driver_type", y="activity_diff", fill="driver_type", palette=PAL_DRIVER_TYPE, color=NA, trim=TRUE) +
+        mutate(gene_type = factor(gene_type, levels=names(PAL_GENE_TYPE))) %>%
+        filter(!is.na(gene_type)) %>%
+        ggviolin(x="gene_type", y="activity_diff", fill="gene_type", palette=PAL_GENE_TYPE, color=NA, trim=TRUE) +
         geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black") +
         geom_text(
             aes(y = -4.5, label=label), 
             . %>% 
-            count(activity_type, driver_type) %>% 
+            count(activity_type, gene_type) %>% 
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
@@ -479,11 +491,11 @@ plot_sf_network_analysis = function(networks_sf_ex){
         filter(n_total>=25)
     
     plts[["sf_network_analysis-target_type_freq_vs_activity_diff-scatter"]] = x %>%
+        mutate(target_type = factor(target_type, levels=names(PAL_GENE_TYPE))) %>%
         drop_na(perc, activity_diff) %>%
         ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="target_type") +
-        color_palette(as.vector(c("darkred","darkgreen",rev(PAL_DRIVER_TYPE)))) +
+        color_palette(PAL_GENE_TYPE) +
         stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
-        #geom_smooth(method="lm", size=LINE_SIZE, color="black", linetype="dashed") +
         facet_wrap(~target_type, scales="free") +
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         guides(color="none") +
@@ -560,7 +572,7 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_sfornot-scatter", '.pdf', figs_dir, width=8, height=12)
     save_plt(plts, "program_activity-diff_rpe1_vs_k562-scatter", '.pdf', figs_dir, width=8, height=8)
     save_plt(plts, "program_activity-diff_vs_cosmic-violin", '.pdf', figs_dir, width=8, height=8)
-    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=8, height=8)
+    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=12, height=8)
     
     save_plt(plts, "enrichments-activity_programs-dot", '.pdf', figs_dir, width=12, height=7.5)
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
@@ -613,6 +625,7 @@ main = function(){
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
+    set.seed(RANDOM_SEED)
     
     # load
     protein_activity_rpe1 = read_tsv(protein_activity_rpe1_file)
@@ -676,6 +689,16 @@ main = function(){
             cancer_program %>% distinct(GENE, ENSEMBL, driver_type), 
             by=c("PERT_ENSEMBL"="ENSEMBL", "PERT_GENE"="GENE")
         ) %>%
+        mutate(
+            is_sf = PERT_GENE %in% splicing_factors[["GENE"]],
+            gene_type = case_when(
+                is_sf & is.na(driver_type) ~ "Non-driver SF",
+                is_sf & driver_type=="Oncogenic" ~ "Oncogenic",
+                is_sf & driver_type=="Tumor suppressor" ~ "Tumor suppressor",
+                !is_sf ~ "Not SF",
+                !is_sf & !is.na(PERT_GENE) ~ "Not SF"
+            )
+        ) %>%
         left_join(
             metadata_rpe1 %>%
                 distinct(PERT_ENSEMBL, n_cells, pert_efficiency_fc) %>%
@@ -694,32 +717,32 @@ main = function(){
         arrange(-Oncogenic) %>% 
         distinct(PERT_GENE,Oncogenic) %>% 
         deframe()
-    enrichments[["rpe1_oncogenic_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["rpe1_oncogenic_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments[["rpe1_oncogenic_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_oncogenic_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
     genes = cancer_program_activity %>% 
         filter(activity_type=="activity_rpe1") %>% 
         arrange(-`Tumor suppressor`) %>% 
         distinct(PERT_GENE,`Tumor suppressor`) %>% 
         deframe()
-    enrichments[["rpe1_tumorsuppressor_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["rpe1_tumorsuppressor_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments[["rpe1_tumorsuppressor_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_tumorsuppressor_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
     genes = cancer_program_activity %>% 
         filter(activity_type=="activity_rpe1") %>% 
         arrange(-activity_diff) %>% 
         distinct(PERT_GENE,activity_diff) %>% 
         deframe()
-    enrichments[["rpe1_activity_diff_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["rpe1_activity_diff_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
-    enrichments[["rpe1_activity_diff_chea"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]])
+    enrichments[["rpe1_activity_diff_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_activity_diff_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_activity_diff_chea"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]], seed=RANDOM_SEED)
     ## without splicing factor perturbations
     genes = cancer_program_activity %>% 
         filter(activity_type=="activity_rpe1" & !pert_is_sf) %>% 
         arrange(-activity_diff) %>% 
         distinct(PERT_GENE,activity_diff) %>% 
         deframe()
-    enrichments[["rpe1_activity_diff_gobp_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]])
-    enrichments[["rpe1_activity_diff_reactome_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]])
-    enrichments[["rpe1_activity_diff_chea_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]])
+    enrichments[["rpe1_activity_diff_gobp_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_activity_diff_reactome_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
+    enrichments[["rpe1_activity_diff_chea_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]], seed=RANDOM_SEED)
     
     # target exon network analysis
     networks_sf_ex = networks_sf_ex %>% 
