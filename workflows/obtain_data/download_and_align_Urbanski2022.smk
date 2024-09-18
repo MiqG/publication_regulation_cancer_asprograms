@@ -14,8 +14,10 @@ VASTDB_DIR = os.path.join(RAW_DIR,'VastDB')
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 # load metadata
+problematic = ["SRR15425254", "SRR15425251", "SRR15425245", "SRR15425246"]
 metadata = pd.read_table(os.path.join(SUPPORT_DIR,'ENA_filereport-PRJNA754112-Urbanski2022.tsv'))
 metadata = metadata.loc[metadata["library_source"]=="TRANSCRIPTOMIC"]
+#metadata = metadata.loc[~metadata["run_accession"].isin(problematic)]
 
 ## URLS to download
 URLS = metadata['fastq_ftp'].str.split(';').str[0].apply(os.path.dirname).to_list()
@@ -82,7 +84,7 @@ rule download:
         download_done = os.path.join(ARTICLE_DIR,'fastqs','.done','{sample}_{end}')
     threads: 1
     resources:
-        runtime = 7200, # 2h
+        runtime = 24*3600, # 2h
         memory = 2
     shell:
         """
@@ -113,7 +115,7 @@ rule align:
         download_done = [os.path.join(ARTICLE_DIR,'fastqs','.done','{sample}_{end}').format(end=end, sample='{sample}') for end in ENDS]
     output:
         align_done = touch(os.path.join(ARTICLE_DIR,'vast_out','.done','{sample}'))
-    threads: 11
+    threads: 6
     resources:
         runtime = lambda wildcards: 86400 if SIZES[wildcards.sample]>SIZE_THRESH else 21600, # most 6h is enough; some needed 24h (more reads).
         memory = 15
@@ -148,7 +150,7 @@ rule vasttools_combine:
     params:
         bin_dir="~/repositories/vast-tools/",
         folder = os.path.join(ARTICLE_DIR,'vast_out')
-    threads: 22
+    threads: 12
     resources:
         runtime = 86400, # 24h
         memory = 20

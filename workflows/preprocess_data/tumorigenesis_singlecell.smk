@@ -37,6 +37,9 @@ rule all:
         expand(os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.h5ad"), dataset=DATASETS),
         expand(os.path.join(PREP_DIR,"singlecell","{dataset}-conditions.tsv.gz"), dataset=DATASETS),
         
+        # convert to tsv
+        expand(os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.tsv.gz"), dataset=DATASETS)
+        
         
 rule preprocess_Hodis2022:
     input:
@@ -317,3 +320,19 @@ rule summarize_genexpr:
         
         print("Done!")
         
+rule h5ad_to_tsv:
+    input:
+        adata = os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.h5ad")
+    output:
+        adata = os.path.join(PREP_DIR,"singlecell","{dataset}-pseudobulk.tsv.gz")
+    run:
+        import scanpy as sc
+        
+        adata = sc.read_h5ad(input.adata)
+        
+        adata = adata.to_df().T
+        
+        adata.reset_index().to_csv(output.adata, **SAVE_PARAMS)
+        
+        print("Done!")
+    

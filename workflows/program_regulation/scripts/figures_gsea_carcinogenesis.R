@@ -59,10 +59,15 @@ PAL_DATASETS = c(
 # RAW_DIR = file.path(ROOT,'data','raw')
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
+# PREP_VIPER_DIR = file.path(ROOT,"../../repositories/viper_splicing/data")
 # NETWORKS_DIR = file.path(ROOT,"results","network_inference") 
 # RESULTS_DIR = file.path(ROOT,"results","program_regulation")
+
+# carcinogenesis_bulk_genexpr_file = file.path(PREP_VIPER_DIR,'genexpr_logtpm','Nijhuis2020.tsv.gz')
 # carcinogenesis_bulk_activity_file = file.path(NETWORKS_DIR,"figures","eval_tumorigenesis","figdata","eval_tumorigenesis","protein_activity.tsv.gz")
 # carcinogenesis_bulk_hallmarks_file = file.path(NETWORKS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz")
+
+# carcinogenesis_singlecell_genexpr_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-pseudobulk.tsv.gz")
 # carcinogenesis_singlecell_activity_file = file.path(NETWORKS_DIR,"figures","eval_tumorigenesis_singlecell-Hodis2022-invitro_eng_melanoc","figdata","eval_tumorigenesis_singlecell","protein_activity.tsv.gz")
 # carcinogenesis_singlecell_hallmarks_file = file.path(NETWORKS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks.tsv.gz")
 # pertseq_activity_file = file.path(RESULTS_DIR,"figures","upstream_regulators","figdata","upstream_regulators","cancer_program_activity.tsv.gz")
@@ -73,6 +78,12 @@ PAL_DATASETS = c(
 # msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
 # splicing_factors_file = file.path(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
+
+# urbanski_metadata_file = file.path(PREP_DIR,"metadata","Urbanski2022.tsv.gz")
+# urbanski_genexpr_file = file.path(PREP_DIR,'genexpr_tpm',"Urbanski2022.tsv.gz")
+# urbanski_ex_file = file.path(PREP_DIR,'event_psi',"Urbanski2022-EX.tsv.gz")
+# urbanski_activiy_file = file.path(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz")
+# urbanski_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks.tsv.gz")
 
 # figs_dir = file.path(RESULTS_DIR,"figures","gsea_carcinogenesis")
 
@@ -377,6 +388,49 @@ plot_corrs = function(corrs, experiments, ontologies, cancer_program){
 }
 
 
+plot_urbanski = function(urbanski_activity, urbanski_genexpr){
+    plts = list()
+    
+    X = urbanski_activity
+    
+    genes_oi = c(
+        "ENSG00000122565", # CBX3
+        "ENSG00000088205" # DDX18
+    )
+    
+    # carcinogenic splicing switch
+    plts[["urbanski-time_vs_activity-violin"]] = X %>%
+        drop_na(driver_type) %>%
+        group_by(driver_type, condition, replicate, pert_time) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        ggstripchart(x="pert_time", y="activity", color="driver_type",
+                     palette=PAL_DRIVER_TYPE, position=position_dodge(0.9)) +
+        geom_boxplot(aes(color=driver_type), fill=NA) +
+        facet_wrap(~condition, ncol=1) +
+        labs(x="Perturbation Time", y="Protein Activity", color="Driver Type")
+    
+    # activity of genes of interest
+    plts[["urbanski-time_vs_activity-violin"]] = X %>%
+        filter(regulator %in% genes_oi) %>%
+        ggstripchart(x="pert_time", y="activity", color="condition",
+                     palette="Dark2", position=position_dodge(0.9)) +
+        geom_boxplot(aes(color=condition), fill=NA) +
+        facet_wrap(~regulator, ncol=1) +
+        labs(x="Perturbation Time", y="Protein Activity", color="Splicing Factor")
+    
+    # expression of genes of interest
+    X = urbanski_genexpr
+    plts[["urbanski-time_vs_genexpr-violin"]] = X %>%
+        filter(ID %in% genes_oi) %>%
+        ggstripchart(x="pert_time", y="genexpr_logtpm", color="condition", position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
+        geom_boxplot(aes(color=condition), fill=NA, position=position_dodge(0.9)) +
+        facet_wrap(~ID, ncol=1, scales="free_y") +
+        labs(x="Perturbation Time", y="log2(TPM + 1)")
+    
+    return(plts)
+}
+
 make_plots = function(corrs, experiments, ontologies, cancer_program){
     plts = list(
         plot_corrs(corrs, experiments, ontologies, cancer_program)
@@ -471,17 +525,28 @@ main = function(){
     set.seed(RANDOM_SEED)
     
     # load
+    carcinogenesis_bulk_genexpr = read_tsv(carcinogenesis_bulk_genexpr_file)
     carcinogenesis_bulk_activity = read_tsv(carcinogenesis_bulk_activity_file)
     carcinogenesis_bulk_metadata = read_tsv(carcinogenesis_bulk_metadata_file)
     carcinogenesis_bulk_hallmarks = read_tsv(carcinogenesis_bulk_hallmarks_file)
+    
+    carcinogenesis_singlecell_genexpr = read_tsv(carcinogenesis_singlecell_genexpr_file)
     carcinogenesis_singlecell_activity = read_tsv(carcinogenesis_singlecell_activity_file)
     carcinogenesis_singlecell_metadata = read_tsv(carcinogenesis_singlecell_metadata_file)
     carcinogenesis_singlecell_hallmarks = read_tsv(carcinogenesis_singlecell_hallmarks_file)
+    
     pertseq_activity = read_tsv(pertseq_activity_file)
     pertseq_hallmarks = read_tsv(pertseq_hallmarks_file)
     ontologies = load_ontologies(msigdb_dir)
     splicing_factors = read_tsv(splicing_factors_file)
-    cancer_program = read_tsv(cancer_program_file)
+    cancer_program = read_tsv(cancer_program_file) %>%
+        mutate(driver_type = factor(driver_type, levels=names(PAL_DRIVER_TYPE)))
+    
+    urbanski_metadata = read_tsv(urbanski_metadata_file)
+    urbanski_genexpr = read_tsv(urbanski_genexpr_file)
+    urbanski_ex = read_tsv(urbanski_ex_file)
+    urbanski_activity = read_tsv(urbanski_activiy_file)     
+    urbanski_hallmarks = read_tsv(urbanski_hallmarks_file)
     
     # prep: combine activity and hallmarks
     ## bulk carcinogenesis
@@ -626,6 +691,19 @@ main = function(){
     genes = setNames(1/abs(fit[["residuals"]]), x[["PERT_GENE"]])
     genes = sort(genes, decreasing=TRUE)
     enrichment = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED, scoreType="pos")
+    
+    # prep Urbanski2022
+    urbanski_metadata = urbanski_metadata %>%
+        separate(sample_title, into=c("condition","pert_time","replicate")) %>%
+        distinct(run_accession, condition, pert_time, replicate) %>%
+        mutate(pert_time = factor(pert_time, levels=c("0h","8h","24h","48h")))
+    urbanski_genexpr = urbanski_genexpr %>%
+        pivot_longer(-ID, names_to="sampleID", values_to="genexpr_logtpm") %>%
+        left_join(urbanski_metadata, by=c("sampleID"="run_accession"))
+    urbanski_activity = urbanski_activity %>%
+        pivot_longer(-regulator, names_to="sampleID", values_to="activity") %>%
+        left_join(urbanski_metadata, by=c("sampleID"="run_accession")) %>%
+        left_join(cancer_program %>% distinct(ENSEMBL,GENE,driver_type), by=c("regulator"="ENSEMBL"))
     
     # plot
     plts = make_plots(corrs, experiments, ontologies, cancer_program)
