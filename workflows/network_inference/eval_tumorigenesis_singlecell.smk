@@ -24,7 +24,7 @@ MODEL_TYPES = ["fclayer","ewlayer"]
 
 DATASETS = ["Hodis2022-invitro_eng_melanoc","Becker2021-adenoma","Boiarsky2022-myeloma"]
 
-ONTOLOGIES = ["hallmarks","reactome"]
+ONTOLOGIES = ["hallmarks"]#,"reactome"]
 
 ##### RULES #####
 rule all:
@@ -33,7 +33,7 @@ rule all:
         ## signature
         expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-genexpr.tsv.gz"), dataset=DATASETS),
         ## GSEA
-        expand(os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz"), dataset=DATASETS[:1], ontology_oi=ONTOLOGIES),
+        expand(os.path.join(RESULTS_DIR,"files","gsea","{dataset}-{ontology_oi}.tsv.gz"), dataset=DATASETS[:2], ontology_oi=ONTOLOGIES),
         ## compute protein activities
         ### classic
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_regulon}.tsv.gz"), dataset=DATASETS, omic_regulon=REGULON_DIRS.keys()),

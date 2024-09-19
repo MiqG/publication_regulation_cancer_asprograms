@@ -49,6 +49,7 @@ PAL_GENE_TYPE = c(
     "Tumor suppressor"="#6C98B3",
     "Oncogenic"="#F6AE2D"
 )
+
 # Development
 # -----------
 # ROOT = here::here()
@@ -478,10 +479,9 @@ plot_sf_network_analysis = function(networks_sf_ex){
     
     X = networks_sf_ex
     
-    # correlation KD switch and oncogenic/suppressor %?
     x = X %>% 
-        distinct(regulator,PERT_GENE,activity_diff,target_type,GENE) %>% 
-        count(regulator,PERT_GENE,activity_diff,target_type) %>%
+        distinct(regulator,PERT_GENE,activity_diff,target_type,regulator_type,GENE) %>% 
+        count(regulator,PERT_GENE,activity_diff,target_type, regulator_type) %>%
         group_by(regulator) %>%
         mutate(
             n_total = sum(n),
@@ -490,6 +490,22 @@ plot_sf_network_analysis = function(networks_sf_ex){
         ungroup() %>%
         filter(n_total>=25)
     
+    # overview target gene percentages for each splicing factor (barplot)
+    sf_order = x %>%
+        filter(target_type=="Not SF") %>%
+        arrange(perc) %>%
+        pull(regulator)
+    plts[["sf_network_analysis-sf_vs_target_type_freq-bar"]] = x %>%
+        mutate(
+            target_type = factor(target_type, levels=names(PAL_GENE_TYPE)),
+            regulator = factor(regulator, levels=sf_order)
+        ) %>%
+        ggbarplot(x="regulator", y="perc", fill="target_type", color=NA) +
+        fill_palette(PAL_GENE_TYPE) +
+        labs(x="Splicing Factor", y="% Target Genes")
+    
+    
+    # correlation KD switch and oncogenic/suppressor %?
     plts[["sf_network_analysis-target_type_freq_vs_activity_diff-scatter"]] = x %>%
         mutate(target_type = factor(target_type, levels=names(PAL_GENE_TYPE))) %>%
         drop_na(perc, activity_diff) %>%
@@ -500,6 +516,16 @@ plot_sf_network_analysis = function(networks_sf_ex){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         guides(color="none") +
         labs(x="% Target Genes", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
+    
+    # connections between and within cancer splicing programs
+    # how many targets of either programs are of themselves or the other?
+    plts[["sf_network_analysis-regulator_type_vs_target_type_freq-bar"]] = x %>%
+        filter((target_type%in%types_oi) & (regulator_type%in%types_oi)) %>%
+        count(target_type, regulator_type) %>%
+        ggbarplot(x="regulator_type", y="n", label=TRUE, lab.size=FONT_SIZE, lab.family=FONT_FAMILY,
+                  position=position_dodge(0.9), color=NA, fill="target_type", palette=PAL_DRIVER_TYPE) +
+        labs(x="Regulator Splicing Program", y="N. Target SFs", fill="Target Splicing Program")
+        
     
     return(plts)
 }
@@ -578,7 +604,9 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
     save_plt(plts, "enrichments-activity_diff_nosf-dot", '.pdf', figs_dir, width=12.5, height=5.5)
     
+    save_plt(plts, "sf_network_analysis-sf_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
     save_plt(plts, "sf_network_analysis-target_type_freq_vs_activity_diff-scatter", '.pdf', figs_dir, width=8, height=9)
+    save_plt(plts, "sf_network_analysis-regulator_type_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
     
     save_plt(plts, "ppi_network_analysis-pair_type_vs_path_length-violin", '.pdf', figs_dir, width=5, height=6)
 }
@@ -752,16 +780,31 @@ main = function(){
             by = c("target"="EVENT")
         ) %>%
         left_join(
-            cancer_program %>% distinct(driver_type, GENE),
+            cancer_program %>% 
+                distinct(driver_type, GENE) %>%
+                rename(driver_type_target=driver_type),
             by = "GENE"
+        ) %>%
+        left_join(
+            cancer_program %>% 
+                distinct(driver_type, ENSEMBL) %>%
+                rename(driver_type_regulator=driver_type),
+            by = c("regulator"="ENSEMBL")
         ) %>%
         mutate(
             target_is_sf = GENE %in% splicing_factors[["GENE"]],
             target_type = case_when(
-                target_is_sf & is.na(driver_type) ~ "Non-driver SF",
-                target_is_sf & driver_type=="Oncogenic" ~ "Oncogenic",
-                target_is_sf & driver_type=="Tumor suppressor" ~ "Tumor suppressor",
+                target_is_sf & is.na(driver_type_target) ~ "Non-driver SF",
+                target_is_sf & driver_type_target=="Oncogenic" ~ "Oncogenic",
+                target_is_sf & driver_type_target=="Tumor suppressor" ~ "Tumor suppressor",
                 !target_is_sf ~ "Not SF"
+            ),
+            regulator_is_sf = regulator %in% splicing_factors[["ENSEMBL"]],
+            regulator_type = case_when(
+                regulator_is_sf & is.na(driver_type_regulator) ~ "Non-driver SF",
+                regulator_is_sf & driver_type_regulator=="Oncogenic" ~ "Oncogenic",
+                regulator_is_sf & driver_type_regulator=="Tumor suppressor" ~ "Tumor suppressor",
+                !regulator_is_sf ~ "Not SF"
             )
         ) %>%
         left_join(
