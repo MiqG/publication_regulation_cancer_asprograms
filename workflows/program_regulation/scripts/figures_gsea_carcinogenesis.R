@@ -2,8 +2,19 @@
 # Author: Miquel Anglada Girotto
 # Contact: miquel [dot] anglada [at] crg [dot] eu
 #
-# Script purpose
+# Notes
 # --------------
+# - MYC turns the carcinogenic splicing switch on
+# - MYC upregulates DDX18 transcription
+# - overexpression of DDX18 decreases its activity
+#
+# TODO
+# ----
+# - plot everything as fold changes w.r.t. MCF10A
+# - Check gene expression/activity changes of all splicing factors upon MYC activation that are known targets of MYC (CHEA database) --> volcano plot --> we are interested in those that both change their expression at the same time that the switch is turned on 
+#     - consider whether they are annotated as suppressor or oncogenic?
+#     - correlate their FC gene expression or activity with the activation of the switch
+#     - we are interested in those whose change in expression (and activity) correlates with the switch turning on or not upon knockdown in the perturb seq (if available)
 
 require(optparse)
 require(tidyverse)
@@ -272,21 +283,21 @@ plot_corrs = function(corrs, experiments, ontologies, cancer_program){
     plts[["corrs-myc_target_sfs-genexpr_bulk-strip"]] = carcinogenesis_genexpr %>%
         filter(dataset=="Danielsson2013-fibroblasts" & ENSEMBL%in%genes_oi) %>%
         drop_na(cell_line_name) %>%
-        ggstripchart(x="cell_line_name", y="genexpr", color="ENSEMBL") +
+        ggstripchart(x="cell_line_name", y="genexpr", color="ENSEMBL", size=1) +
         labs(x="Carcinogenic Stage", y="log2(TPM+1)", subtitle="Danielsson2013-fibroblasts")
         
         
     ## singlecell
     plts[["corrs-myc_target_sfs-genexpr_singlecell-strip"]] = carcinogenesis_genexpr %>%
         filter(dataset=="Hodis2022-invitro_eng_melanoc" & ENSEMBL%in%genes_oi) %>%
-        ggstripchart(x="treatment", y="genexpr", color="ENSEMBL") +
+        ggstripchart(x="treatment", y="genexpr", color="ENSEMBL", size=1) +
         labs(x="Carcinogenic Stage", y="log2(TPM+1)", subtitle="Hodis2022-invitro_eng_melanoc")
     
     return(plts)
 }
 
 
-plot_urbanski = function(urbanski_activity, urbanski_genexpr){
+plot_urbanski = function(urbanski_genexpr, urbanski_activity, urbanski_hallmarks){
     plts = list()
     
     X = urbanski_activity
@@ -297,33 +308,36 @@ plot_urbanski = function(urbanski_activity, urbanski_genexpr){
     )
     
     # carcinogenic splicing switch
-    plts[["urbanski-time_vs_activity-violin"]] = X %>%
+    plts[["urbanski-time_vs_activity-box"]] = X %>%
         drop_na(driver_type) %>%
         group_by(driver_type, condition, replicate, pert_time) %>%
         summarize(activity = median(activity)) %>%
         ungroup() %>%
-        ggstripchart(x="pert_time", y="activity", color="driver_type",
+        ggstripchart(x="pert_time", y="activity", color="driver_type", size=1,
                      palette=PAL_DRIVER_TYPE, position=position_dodge(0.9)) +
         geom_boxplot(aes(color=driver_type), fill=NA) +
         facet_wrap(~condition, ncol=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Perturbation Time", y="Protein Activity", color="Driver Type")
     
     # activity of genes of interest
-    plts[["urbanski-time_vs_activity-violin"]] = X %>%
+    plts[["urbanski-time_vs_activity_genes_oi-box"]] = X %>%
         filter(regulator %in% genes_oi) %>%
-        ggstripchart(x="pert_time", y="activity", color="condition",
+        ggstripchart(x="pert_time", y="activity", color="condition", size=1,
                      palette="Dark2", position=position_dodge(0.9)) +
         geom_boxplot(aes(color=condition), fill=NA) +
         facet_wrap(~regulator, ncol=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Perturbation Time", y="Protein Activity", color="Splicing Factor")
     
     # expression of genes of interest
     X = urbanski_genexpr
     plts[["urbanski-time_vs_genexpr-box"]] = X %>%
         filter(ID %in% genes_oi) %>%
-        ggstripchart(x="pert_time", y="genexpr_logtpm", color="condition", position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
+        ggstripchart(x="pert_time", y="genexpr_logtpm", color="condition", size=1, position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
         geom_boxplot(aes(color=condition), fill=NA, position=position_dodge(0.9)) +
         facet_wrap(~ID, ncol=1, scales="free_y") +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Perturbation Time", y="log2(TPM + 1)")
     
     plts[["urbanski-genexpr_fc_distr_sfs-violin"]] = X %>%
@@ -339,7 +353,8 @@ plot_urbanski = function(urbanski_activity, urbanski_genexpr){
         ggviolin(x="condition", y="genexpr_fc", color=NA, fill="condition") +
         geom_text_repel(
             aes(label=label),
-            . %>% filter(is_oi) %>% mutate(label=ID)
+            . %>% filter(is_oi) %>% mutate(label=ID),
+            size=FONT_SIZE, family=FONT_FAMILY
         ) +
         labs(x="Condition", y="logFC Gene Expression 8h vs 0h")
     
@@ -348,17 +363,20 @@ plot_urbanski = function(urbanski_activity, urbanski_genexpr){
     X = urbanski_hallmarks
     plts[["urbanski-time_vs_hallmarks-box"]] = X %>%
         filter(Description %in% pathways_oi) %>%
-        ggstripchart(x="pert_time", y="NES", color="condition", position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
+        ggstripchart(x="pert_time", y="NES", color="condition", size=1, position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
         geom_boxplot(aes(color=condition), fill=NA, position=position_dodge(0.9)) +
         facet_wrap(~Description, ncol=1, scales="free_y") +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Perturbation Time", y="NES")
     
     return(plts)
 }
 
-make_plots = function(corrs, experiments, ontologies, cancer_program){
+make_plots = function(corrs, experiments, ontologies, cancer_program, 
+                      urbanski_genexpr, urbanski_activity, urbanski_hallmarks){
     plts = list(
-        plot_corrs(corrs, experiments, ontologies, cancer_program)
+        plot_corrs(corrs, experiments, ontologies, cancer_program),
+        plot_urbanski(urbanski_genexpr, urbanski_activity, urbanski_hallmarks)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -393,10 +411,18 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "corrs-nes_vs_activity_diff-violin", '.pdf', figs_dir, width=4, height=4)
     save_plt(plts, "corrs-bulk_vs_singlecell-scatter", '.pdf', figs_dir, width=4, height=4)
     save_plt(plts, "corrs-bulk_vs_singlecell-bar", '.pdf', figs_dir, width=7, height=5)
-    save_plt(plts, "corrs-hallmark_sets_overlaps-upset", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "corrs-hallmark_sets_overlaps-upset", '.pdf', figs_dir, width=14, height=10)
     save_plt(plts, "corrs-term_vs_nes-pertseq-violin", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-nes_lm_coefs-bar", '.pdf', figs_dir, width=7, height=5.5)
     save_plt(plts, "corrs-overlap_myc_sets-venn", '.pdf', figs_dir, width=5, height=5)
+    save_plt(plts, "corrs-myc_target_sfs-genexpr_bulk-strip", '.pdf', figs_dir, width=5, height=4.5)
+    save_plt(plts, "corrs-myc_target_sfs-genexpr_singlecell-strip", '.pdf', figs_dir, width=5, height=4.5)
+
+    save_plt(plts, "urbanski-time_vs_activity-box", '.pdf', figs_dir, width=5, height=7)
+    save_plt(plts, "urbanski-time_vs_activity_genes_oi-box", '.pdf', figs_dir, width=5, height=5)
+    save_plt(plts, "urbanski-time_vs_genexpr-box", '.pdf', figs_dir, width=5, height=7)
+    save_plt(plts, "urbanski-genexpr_fc_distr_sfs-violin", '.pdf', figs_dir, width=5, height=5)
+    save_plt(plts, "urbanski-time_vs_hallmarks-box", '.pdf', figs_dir, width=5, height=7)
 }
 
 
@@ -651,7 +677,8 @@ main = function(){
         left_join(urbanski_metadata, by=c("sampleID"="run_accession"))
     
     # plot
-    plts = make_plots(corrs, experiments, ontologies, cancer_program)
+    plts = make_plots(corrs, experiments, ontologies, cancer_program,
+                      urbanski_genexpr, urbanski_activity, urbanski_hallmarks)
     
     # make figdata
     figdata = make_figdata(corrs)

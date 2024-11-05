@@ -2,10 +2,12 @@
 # Author: Miquel Anglada Girotto
 # Contact: miquel [dot] anglada [at] crg [dot] eu
 #
-# Script purpose
+# Notes
 # --------------
+# - DDX18 is oncogenic SF
+# - in accordance, DDX18 KD does not turn the switch on (more off)
+# - KD of DDX18 in RPE1 increases its own activity
 
-Sys.setenv(VROOM_CONNECTION_SIZE='100000000')
 require(optparse)
 require(tidyverse)
 require(ggpubr)
@@ -519,12 +521,12 @@ plot_sf_network_analysis = function(networks_sf_ex){
     
     # connections between and within cancer splicing programs
     # how many targets of either programs are of themselves or the other?
-    plts[["sf_network_analysis-regulator_type_vs_target_type_freq-bar"]] = x %>%
-        filter((target_type%in%types_oi) & (regulator_type%in%types_oi)) %>%
-        count(target_type, regulator_type) %>%
-        ggbarplot(x="regulator_type", y="n", label=TRUE, lab.size=FONT_SIZE, lab.family=FONT_FAMILY,
-                  position=position_dodge(0.9), color=NA, fill="target_type", palette=PAL_DRIVER_TYPE) +
-        labs(x="Regulator Splicing Program", y="N. Target SFs", fill="Target Splicing Program")
+    # plts[["sf_network_analysis-regulator_type_vs_target_type_freq-bar"]] = x %>%
+    #     filter((target_type%in%types_oi) & (regulator_type%in%types_oi)) %>%
+    #     count(target_type, regulator_type) %>%
+    #     ggbarplot(x="regulator_type", y="n", label=TRUE, lab.size=FONT_SIZE, lab.family=FONT_FAMILY,
+    #               position=position_dodge(0.9), color=NA, fill="target_type", palette=PAL_DRIVER_TYPE) +
+    #     labs(x="Regulator Splicing Program", y="N. Target SFs", fill="Target Splicing Program")
         
     
     return(plts)
