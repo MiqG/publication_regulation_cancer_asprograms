@@ -66,11 +66,17 @@ rule make_regulons:
             
             os.makedirs(output.output_dir, exist_ok=True)
 
+            # correct PERT_ID column
+            X = perts["PERT_ID"].str.split("___", expand=True)
+            X.columns = ["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]
+            perts[["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]] = X
+            perts["regulator"] = perts["PERT_ENSEMBL"]
+
             # subset
-            perts = perts.loc[perts["PERT_ID"].isin(regulators["ENSEMBL"])].copy()
+            perts = perts.loc[perts["PERT_ENSEMBL"].isin(regulators["ENSEMBL"])].copy()
 
             # add gene symbols
-            perts = pd.merge(perts, regulators, left_on="PERT_ID", right_on="ENSEMBL", how="left")
+            perts = pd.merge(perts, regulators, left_on="PERT_ENSEMBL", right_on="ENSEMBL", how="left")
 
             # save
             output_file = os.path.join(output.output_dir,"%s-%s-%s.tsv.gz") % (dataset, cell_line, value_name)
