@@ -41,7 +41,8 @@ rule all:
         
         # signatures Rogalska2024
         os.path.join(PREP_DIR,"signatures","Rogalska2024-EX.tsv.gz"),
-        os.path.join(PREP_DIR,"signatures","Rogalska2024-genexpr_tpm.tsv.gz"), 
+        os.path.join(PREP_DIR,"signatures","Rogalska2024-genexpr_tpm.tsv.gz"),
+        os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
         
         
 rule preprocess_stringdb:
@@ -330,6 +331,45 @@ rule compute_signatures_genexpr:
         
         # save
         signatures.reset_index().to_csv(output.signatures, **SAVE_PARAMS)
+        
+        print("Done!")
+        
+        
+rule prepare_delta_psi:
+    input:
+        metadata = os.path.join(PREP_DIR,'metadata','{dataset}.tsv.gz'),
+        dpsi = os.path.join(PREP_DIR,"signatures","{dataset}-EX.tsv.gz"),
+    params:
+        dataset = "{dataset}",
+    output:
+        dpsi = os.path.join(PREP_DIR,'delta_psi','{dataset}-EX.tsv.gz'),
+    run:
+        import pandas as pd
+        
+        metadata = pd.read_table(input.metadata)
+        dpsi = pd.read_table(input.dpsi, index_col=0)
+        dataset = params.dataset
+        
+        # drop control samples
+        metadata = metadata.loc[~metadata["PERT_ENSEMBL"].isnull()].copy()
+        
+        # make perturbation id
+        metadata["study_accession"] = dataset
+        metadata["PERT_ID"] = metadata[
+            ["study_accession","cell_line","PERT_ENSEMBL","PERT_TYPE"]
+        ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)        
+        dpsis = []
+        
+        for pert_id in metadata["PERT_ID"].unique():
+            samples_oi = metadata.loc[metadata["PERT_ID"]==pert_id, "sampleID"]
+            
+            dpsi_avg = dpsi[samples_oi].mean(axis=1)
+            dpsi_avg.name = pert_id
+            dpsis.append(dpsi_avg)
+            
+        dpsis = pd.concat(dpsis, axis=1)
+
+        dpsis.reset_index().to_csv(output.dpsi, **SAVE_PARAMS)
         
         print("Done!")
         
