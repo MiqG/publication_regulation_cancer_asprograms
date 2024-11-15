@@ -85,7 +85,7 @@ rule download:
     resources:
         # runtime = 24*3600, # 24h in seconds
         runtime = 24*60, # 24h in minutes
-        memory = 2
+        memory = 10
     shell:
         """
         # download
@@ -115,10 +115,10 @@ rule align:
         download_done = [os.path.join(ARTICLE_DIR,'fastqs','.done','{sample}_{end}').format(end=end, sample='{sample}') for end in ENDS]
     output:
         align_done = touch(os.path.join(ARTICLE_DIR,'vast_out','.done','{sample}'))
-    threads: 6
+    threads: 12
     resources:
         runtime = lambda wildcards: 24*60 if SIZES[wildcards.sample]>SIZE_THRESH else 6*60, # 6h or 24h in minutes
-        memory = 15
+        memory = 20
     shell:
         """
         # align paired reads
