@@ -42,7 +42,8 @@ rule all:
         # signatures Rogalska2024
         os.path.join(PREP_DIR,"signatures","Rogalska2024-EX.tsv.gz"),
         os.path.join(PREP_DIR,"signatures","Rogalska2024-genexpr_tpm.tsv.gz"),
-        os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
+        os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz'),
+        os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz')
         
         
 rule preprocess_stringdb:
@@ -302,7 +303,7 @@ rule compute_signatures_genexpr:
         metadata = metadata.loc[metadata["sampleID"].isin(common_samples)].copy()
         genexpr = genexpr[common_samples].copy()
         
-        # delta PSI as the difference between conditions and the mean of the conditions
+        # fold change as the difference between conditions and the mean of the conditions
         signatures = {}
         for sample_oi in metadata["sampleID"]:
             # get the controls of the sample
@@ -372,4 +373,43 @@ rule prepare_delta_psi:
         dpsis.reset_index().to_csv(output.dpsi, **SAVE_PARAMS)
         
         print("Done!")
+        
+        
+rule prepare_log2_fold_change_tpm:
+    input:
+        metadata = os.path.join(PREP_DIR,'metadata','{dataset}.tsv.gz'),
+        fc = os.path.join(PREP_DIR,"signatures","{dataset}-genexpr_tpm.tsv.gz"),
+    params:
+        dataset = "{dataset}",
+    output:
+        fc = os.path.join(PREP_DIR,'log2_fold_change_tpm','{dataset}-genexpr_tpm.tsv.gz')
+    run:
+        import pandas as pd
+        
+        metadata = pd.read_table(input.metadata)
+        fc = pd.read_table(input.fc, index_col=0)
+        dataset = params.dataset
+        
+        # drop control samples
+        metadata = metadata.loc[~metadata["PERT_ENSEMBL"].isnull()].copy()
+        
+        # make perturbation id
+        metadata["study_accession"] = dataset
+        metadata["PERT_ID"] = metadata[
+            ["study_accession","cell_line","PERT_ENSEMBL","PERT_TYPE"]
+        ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)        
+        fcs = []
+        
+        for pert_id in metadata["PERT_ID"].unique():
+            samples_oi = metadata.loc[metadata["PERT_ID"]==pert_id, "sampleID"]
+            
+            fc_avg = fc[samples_oi].mean(axis=1)
+            fc_avg.name = pert_id
+            fcs.append(fc_avg)
+            
+        fcs = pd.concat(fcs, axis=1)
+
+        fcs.reset_index().to_csv(output.fc, **SAVE_PARAMS)
+        
+        print("Done!")    
         

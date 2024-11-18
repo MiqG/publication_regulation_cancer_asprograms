@@ -243,7 +243,8 @@ rule compute_signatures:
     output:
         signature = os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_{dataset}-{pseudobulk_type}-log2_fold_change_cpm.tsv.gz")
     params:
-        pseudobulk_type = "{pseudobulk_type}"
+        pseudobulk_type = "{pseudobulk_type}",
+        dataset = "{dataset}"
     resources:
         memory = 20, # GB
         runtime = 3600*2 # h
@@ -255,6 +256,12 @@ rule compute_signatures:
         # load
         adata = sc.read_h5ad(input.adata)
         pseudobulk_type = params.pseudobulk_type
+        dataset = params.dataset
+        
+        # add info
+        adata.obs["study_accession"] = "ReplogleWeissman2022_"+dataset
+        adata.obs["cell_line"] = "K562" if "K562" in dataset else "RPE1"
+        adata.obs["PERT_TYPE"] = "KNOCKDOWN"
         
         # compute fold changes by batch
         if pseudobulk_type=="pseudobulk_by_batch":
@@ -273,8 +280,12 @@ rule compute_signatures:
 
         elif pseudobulk_type=="pseudobulk_across_batches":            
             ctl_cells = (adata.obs["PERT_ENSEMBL"]=="non-targeting")
+            adata.obs["PERT_ID"] = adata.obs[
+                ["study_accession","cell_line","PERT_ENSEMBL","PERT_TYPE"]
+            ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)
+            adata.obs = adata.obs.set_index("PERT_ID")
             genexpr_ctl = adata[ctl_cells,:].X
-            genexpr = adata.to_df()
+            genexpr = adata[~ctl_cells,:].to_df()
             genexpr = genexpr - genexpr_ctl
             
         # save

@@ -8,20 +8,13 @@ SUPPORT_DIR = os.path.join(ROOT,"support")
 RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
-PERT_SPLICING_FILES = [
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKD',"HepG2",'delta_psi-{omic_type}.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKD',"K562",'delta_psi-{omic_type}.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'delta_psi-{omic_type}.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"K562",'delta_psi-{omic_type}.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','delta_psi-{omic_type}.tsv.gz')
-]
-
 PERT_GENEXPR_FILES = [
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKD',"HepG2",'log2_fold_change_tpm.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKD',"K562",'log2_fold_change_tpm.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'log2_fold_change_tpm.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"K562",'log2_fold_change_tpm.tsv.gz'),
-    os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','log2_fold_change_tpm.tsv.gz')
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz')
 ]
 
 PERT_SCGENEXPR_FILES = [
@@ -31,7 +24,6 @@ PERT_SCGENEXPR_FILES = [
 ]
 
 PERT_FILES = {
-    "EX": PERT_SPLICING_FILES,
     "genexpr": PERT_GENEXPR_FILES,
     "scgenexpr": PERT_SCGENEXPR_FILES
 }
@@ -77,17 +69,21 @@ rule make_regulons:
             perts = pd.read_table(f, index_col=0)
             
             # get info
-            if "ENCORE" in f:
-                dataset = os.path.basename(os.path.dirname(os.path.dirname(f)))
+            if "_encore" in f:
+                dataset = os.path.basename(f).replace(".tsv.gz","").split("_")[-2].upper()
                 cell_line = os.path.basename(os.path.dirname(f))
             
             elif "Replogle" in f:
                 dataset = os.path.basename(f).split("-")[0].split("_")[0]
                 cell_line = os.path.basename(f).split("-")[0].replace("ReplogleWeissman2022_","")
             
-            elif "ENASFS" in f:
+            elif "_ena" in f:
                 dataset = "ENASFS"
                 metadata = pd.read_table(input.metadata)
+                
+            elif "Rogalska2024" in f:
+                dataset = "Rogalska2024"
+                cell_line = "HELA_CERVIX"
                 
             # prep perturbations
             perts.index.name = feature_name
@@ -102,12 +98,18 @@ rule make_regulons:
             perts["tfmode"] = (-1)*np.sign(perts[value_name]) # they come from KD or KO, decrease activity
             
             os.makedirs(output.output_dir, exist_ok=True)
-            if ("ENCORE" in dataset) | ("Replogle" in dataset):
+            if ("ENCORE" in dataset) | ("Replogle" in dataset) | ("Rogalska" in dataset):
+                # correct PERT_ID column
+                X = perts["PERT_ID"].str.split("___", expand=True)
+                X.columns = ["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]
+                perts[["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]] = X
+                perts["regulator"] = perts["PERT_ENSEMBL"]                
+                
                 # subset
-                perts = perts.loc[perts["PERT_ID"].isin(regulators["ENSEMBL"])].copy()
+                perts = perts.loc[perts["PERT_ENSEMBL"].isin(regulators["ENSEMBL"])].copy()
 
                 # add gene symbols
-                perts = pd.merge(perts, regulators, left_on="PERT_ID", right_on="ENSEMBL", how="left")
+                perts = pd.merge(perts, regulators, left_on="PERT_ENSEMBL", right_on="ENSEMBL", how="left")
 
                 # save
                 output_file = os.path.join(output.output_dir,"%s-%s-%s.tsv.gz") % (dataset, cell_line, value_name)
@@ -117,8 +119,8 @@ rule make_regulons:
             elif dataset=="ENASFS":
                 # correct PERT_ID column
                 X = perts["PERT_ID"].str.split("___", expand=True)
-                X.columns = ["study_accession","cell_line_name","PERT_ENSEMBL"]
-                perts[["study_accession","cell_line_name","PERT_ENSEMBL"]] = X
+                X.columns = ["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]
+                perts[["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]] = X
                 perts["regulator"] = perts["PERT_ENSEMBL"]
                 
                 # subset
@@ -126,13 +128,6 @@ rule make_regulons:
                 
                 # add gene symbols
                 perts = pd.merge(perts, regulators, left_on="PERT_ENSEMBL", right_on="ENSEMBL", how="left")
-                
-                # add pert type
-                metadata = metadata.loc[~metadata["PERT_ENSEMBL"].isnull()].copy()
-                metadata["PERT_ID"] = metadata[
-                    ["study_accession","cell_line_name","PERT_ENSEMBL"]
-                ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)
-                perts = pd.merge(perts, metadata[["PERT_ID","PERT_TYPE"]].drop_duplicates(), on="PERT_ID", how="left")
                 
                 # subset pert types
                 pert_types_oi = ["KNOCKDOWN","KNOCKOUT","OVEREXPRESSION"]
@@ -179,7 +174,7 @@ rule prune_regulons:
     output:
         output_dir = directory(os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-{omic_type}"))
     params:
-        thresh = lambda wildcards: 15 if wildcards.omic_type not in ["genexpr","scgenexpr"] else 1
+        thresh = 1
     run:
         import os
         import pandas as pd

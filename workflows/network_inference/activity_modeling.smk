@@ -24,7 +24,8 @@ PERT_SPLICING_FILES = {
     "ENCOREKD_K562": os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKD',"K562",'delta_psi-EX.tsv.gz'),
     "ENCOREKO_HepG2": os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'delta_psi-EX.tsv.gz'),
     "ENCOREKO_K562": os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"K562",'delta_psi-EX.tsv.gz'),
-    "ENASFS": os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','delta_psi-EX.tsv.gz')
+    "ENASFS": os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','delta_psi-EX.tsv.gz'),
+    "Rogalska2024": os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
 }
 
 PERT_GENEXPR_FILES = {
@@ -33,6 +34,7 @@ PERT_GENEXPR_FILES = {
     "ENCOREKO_HepG2": os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'log2_fold_change_tpm.tsv.gz'),
     "ENCOREKO_K562": os.path.join(PREP_DIR,'ground_truth_pert','ENCOREKO',"K562",'log2_fold_change_tpm.tsv.gz'),
     "ENASFS": os.path.join(PREP_DIR,'ground_truth_pert','ENASFS','log2_fold_change_tpm.tsv.gz'),
+    "Rogalska2024": os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz'),
     "ReplogleWeissman2022_K562_essential-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
     "ReplogleWeissman2022_rpe1-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
     "ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz")
@@ -58,19 +60,19 @@ METADATA_FILES = [
     os.path.join(PREP_DIR,"metadata","ENCOREKO.tsv.gz"),
     os.path.join(PREP_DIR,"metadata","ENCOREKD.tsv.gz"),
     os.path.join(PREP_DIR,"metadata","ENASFS.tsv.gz"),
+    os.path.join(PREP_DIR,"metadata","Rogalska2024.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-conditions.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-conditions.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches-conditions.tsv.gz")
 ]
 
-REGULON_DIRS = {
-    "genexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-genexpr"),
-    "EX": os.path.join(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX"),
-    "scgenexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-scgenexpr")
-}
+REGULON_SETS = [
+    "experimentally_derived_regulons_pruned-genexpr",
+    "experimentally_derived_regulons_pruned-scgenexpr",
+    "experimentally_derived_regulons_pruned_w_viper_networks-EX"
+]
 
-SHADOWS = ["no"] # bug in viper does not allow shadow correction
-N_TAILS = ["two"]
+METHODS_ACTIVITY = ["viper","correlation_pearson","correlation_spearman","gsea"]
 
 EVENT_TYPES = ["EX"]
 OMIC_TYPES = ["genexpr","scgenexpr"] + EVENT_TYPES
@@ -79,23 +81,12 @@ OMIC_GENEXPR_REGULONS = ["genexpr","scgenexpr"]
 
 EVAL_DATASETS = list(PERT_GENEXPR_FILES.keys())
 
-ALL_DATASETS = [d for d in PERT_GENEXPR_FILES.keys() for o in OMIC_GENEXPR_REGULONS] + [d for d in PERT_SPLICING_FILES.keys() for o in ["EX"]]
-ALL_OMICS = [o for d in PERT_GENEXPR_FILES.keys() for o in OMIC_GENEXPR_REGULONS] + [o for d in PERT_SPLICING_FILES.keys() for o in ["EX"]]
-ALL_SHADOWS = [s for s in SHADOWS for d in ALL_DATASETS]
-ALL_N_TAILS = [t for t in N_TAILS for d in ALL_DATASETS]
+# ALL_DATASETS = [d for d in PERT_GENEXPR_FILES.keys() for o in OMIC_GENEXPR_REGULONS] + [d for d in PERT_SPLICING_FILES.keys() for o in ["EX"]]
+# ALL_OMICS = [o for d in PERT_GENEXPR_FILES.keys() for o in OMIC_GENEXPR_REGULONS] + [o for d in PERT_SPLICING_FILES.keys() for o in ["EX"]]
 
 ##### RULES #####
 rule all:
     input:
-        # prepare evaluation labels
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels"),
-        
-        # evaluate regulons
-        ## run
-        expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_regulon}-shadow_{shadow}-{n_tails}_tailed.tsv.gz"), zip, dataset=ALL_DATASETS, omic_regulon=ALL_OMICS, shadow=ALL_SHADOWS, n_tails=ALL_N_TAILS),
-        ## merge
-        expand(os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-{omic_regulon}.tsv.gz"), omic_regulon=OMIC_TYPES),
-        
         # signature CCLE
         expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_signature}.tsv.gz"), dataset=["CCLE"], omic_signature=["EX","genexpr"]),
 
@@ -112,101 +103,10 @@ rule all:
         # estimate SF activities with trained models
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX_from_model_{model_type}_and_{omic_regulon}.tsv.gz"), dataset=PERT_SPLICING_FILES.keys(), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_TYPES),
 
-#         # make figures
-#         os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing")
+        # make figures
+        # os.path.join(RESULTS_DIR,"figures","activity_modeling")
         
         
-rule make_evaluation_labels:
-    input:
-        metadatas = METADATA_FILES
-    output:
-        output_dir = directory(os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels"))
-    run:
-        import pandas as pd
-        
-        for f in input.metadatas:
-            # load
-            metadata = pd.read_table(f)
-            
-            os.makedirs(output.output_dir, exist_ok=True)
-            if "ENCORE" in f:
-                for cell_line in metadata["cell_line"].unique():
-                    # make labels
-                    labels = metadata.loc[
-                        metadata["cell_line"]==cell_line, ["PERT_GENE","PERT_ENSEMBL"]
-                    ].drop_duplicates().copy()
-                    labels["PERT_ID"] = metadata["PERT_ENSEMBL"]
-                    labels["PERT_TYPE"] = "KNOCKDOWN" if "KD" in os.path.basename(f) else "KNOCKOUT"
-                    
-                    dataset = "ENCOREKD" if "KD" in os.path.basename(f) else "ENCOREKO"
-                    
-                    # save
-                    labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
-            elif "singlecell" in f:
-                metadata["PERT_ID"] = metadata["PERT_ENSEMBL"]
-                metadata["PERT_TYPE"] = "KNOCKDOWN"
-                # "PERT_GENE" columns would be nice to have
-                labels = metadata[["PERT_ID","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates()
-                
-                # save
-                dataset_file = os.path.basename(f).replace("-conditions","")
-                labels.dropna().to_csv(os.path.join(output.output_dir,dataset_file), **SAVE_PARAMS)
-                
-            elif "ENASFS" in f:
-                # prepare labels
-                metadata["PERT_ID"] = metadata[
-                    ["study_accession","cell_line_name","PERT_ENSEMBL"]
-                ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)
-                labels = metadata[["PERT_ID","PERT_GENE","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates()
-
-                # save
-                labels.dropna().to_csv(os.path.join(output.output_dir,"ENASFS.tsv.gz"), **SAVE_PARAMS)
-                
-                
-        print("Done!")
-        
-
-rule evaluate_regulons:
-    input:
-        signature = lambda wildcards: PERT_EVAL_FILES[OMIC_PERT_DICT[wildcards.omic_regulon]][wildcards.dataset],
-        regulons = lambda wildcards: REGULON_DIRS[wildcards.omic_regulon],
-        eval_labels = os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels","{dataset}.tsv.gz")
-    output:
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_regulon}-shadow_{shadow}-{n_tails}_tailed.tsv.gz")
-    params:
-        script_dir = SRC_DIR,
-        shadow = "{shadow}",
-        n_tails = "{n_tails}"
-    shell:
-        """
-        nice Rscript {params.script_dir}/compute_protein_activity.R \
-                    --signature_file={input.signature} \
-                    --regulons_path={input.regulons} \
-                    --eval_labels_file={input.eval_labels} \
-                    --output_file={output} \
-                    --shadow_correction={params.shadow} \
-                    --n_tails={params.n_tails}
-        """
-        
-        
-rule combine_evaluations:
-    input:
-        evaluations = lambda wildcards: [os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{dataset}-{omic_regulon}-shadow_{shadow}-{n_tails}_tailed.tsv.gz").format(dataset=d, omic_regulon="{omic_regulon}", shadow=s, n_tails=n) for s in SHADOWS for n in N_TAILS for d in PERT_EVAL_FILES[OMIC_PERT_DICT[wildcards.omic_regulon]].keys()]
-    output:
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-{omic_regulon}.tsv.gz")
-    params:
-        omic_regulon = "{omic_regulon}"
-    run:
-        import pandas as pd
-    
-        evaluation = pd.concat([pd.read_table(f) for f in input.evaluations])
-        evaluation["omic_type"] = params.omic_regulon
-        
-        evaluation.to_csv(output[0], **SAVE_PARAMS)
-        
-        print("Done!")
-      
-    
 rule compute_signature_within:
     input:
         data = lambda wildcards: DATASETS[wildcards.dataset][wildcards.omic_signature]
