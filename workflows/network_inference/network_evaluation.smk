@@ -45,22 +45,24 @@ OMIC_PERT_DICT = {
 }
 
 METADATA_FILES = [
-    os.path.join(PREP_DIR,"metadata","ENCOREKO.tsv.gz"),
-    os.path.join(PREP_DIR,"metadata","ENCOREKD.tsv.gz"),
-    os.path.join(PREP_DIR,"metadata","ENASFS.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_encoreko.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_encorekd.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_ena.tsv.gz"),
     os.path.join(PREP_DIR,"metadata","Rogalska2024.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-conditions.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-conditions.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches-conditions.tsv.gz")
 ]
 
-REGULON_SETS = [
-    "experimentally_derived_regulons_pruned-genexpr",
-    "experimentally_derived_regulons_pruned-scgenexpr",
-    "experimentally_derived_regulons_pruned_w_viper_networks-EX"
-]
+REGULON_SETS = {
+    "EX": ["experimentally_derived_regulons_pruned_w_viper_networks-EX"],
+    "genexpr": [
+        "experimentally_derived_regulons_pruned-genexpr",
+        "experimentally_derived_regulons_pruned-scgenexpr",
+    ]
+}
 
-METHODS_ACTIVITY = ["viper"]#,"correlation_pearson","correlation_spearman","gsea"]
+METHODS_ACTIVITY = ["viper","correlation_pearson","correlation_spearman"]#,"gsea"]
 
 EVENT_TYPES = ["EX"]
 OMIC_TYPES = ["genexpr","scgenexpr"] + EVENT_TYPES
@@ -71,17 +73,17 @@ REGULON_SETS_LIST = []
 DATASETS_LIST = []
 for o in OMIC_TYPES:
     for d in PERT_EVAL_FILES[OMIC_PERT_DICT[o]]:
-        for r in REGULON_SETS:
+        for r in REGULON_SETS[OMIC_PERT_DICT[o]]:
             for m in METHODS_ACTIVITY:
                 OMIC_TYPE_LIST.append(o)
                 METHOD_ACTIVITY_LIST.append(m)
                 REGULON_SETS_LIST.append(r)
                 DATASETS_LIST.append(d)
                 
-OMIC_TYPE_LIST = OMIC_TYPE_LIST[:4]
-METHOD_ACTIVITY_LIST = METHOD_ACTIVITY_LIST[:4]
-REGULON_SETS_LIST = REGULON_SETS_LIST[:4]
-DATASETS_LIST = DATASETS_LIST[:4]
+# OMIC_TYPE_LIST = OMIC_TYPE_LIST[:4]
+# METHOD_ACTIVITY_LIST = METHOD_ACTIVITY_LIST[:4]
+# REGULON_SETS_LIST = REGULON_SETS_LIST[:4]
+# DATASETS_LIST = DATASETS_LIST[:4]
 
 ##### RULES #####
 rule all:
@@ -100,7 +102,7 @@ rule all:
         os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged.tsv.gz"),
         
         # figures
-#         os.path.join(RESULTS_DIR,"figures","network_evaluation")
+        os.path.join(RESULTS_DIR,"figures","network_evaluation")
         
         
 rule make_evaluation_labels:
@@ -114,22 +116,21 @@ rule make_evaluation_labels:
         perts_oi = ["KNOCKDOWN","KNOCKOUT","OVEREXPRESSION"]
         
         for f in input.metadatas:
+            print(f)
+            
             # load
             metadata = pd.read_table(f)
             
             os.makedirs(output.output_dir, exist_ok=True)
-            if "ENCORE" in f:
+            if "encore" in f:
                 for cell_line in metadata["cell_line"].unique():
-                    # perturbation type
-                    metadata["PERT_TYPE"] = "KNOCKDOWN" if "KD" in os.path.basename(f) else "KNOCKOUT"
-                    
                     # make labels
                     labels = metadata.loc[
                         metadata["cell_line"]==cell_line, 
                         ["cell_line","PERT_ENSEMBL","PERT_TYPE"]
                     ].drop_duplicates().copy()
                     
-                    dataset = "ENCOREKD" if "KD" in os.path.basename(f) else "ENCOREKO"
+                    dataset = "ENCOREKD" if "kd" in os.path.basename(f) else "ENCOREKO"
                     labels["study_accession"] = dataset
                     
                     labels["PERT_ID"] = labels[
@@ -143,13 +144,13 @@ rule make_evaluation_labels:
                     labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
             
             elif "Rogalska2024" in f:
-                    # make labels
-                    labels = metadata.loc[
-                        metadata["cell_line"]==cell_line, 
-                        ["cell_line","PERT_ENSEMBL","PERT_TYPE"]
-                    ].drop_duplicates().copy()
+                    cell_line = "HELA_CERVIX"
+                    dataset = "Rogalska2024"
                     
-                    labels["study_accession"] = "Rogalska2024"
+                    # make labels
+                    labels = metadata[["cell_line","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates().copy()
+                    
+                    labels["study_accession"] = dataset
                     
                     labels["PERT_ID"] = labels[
                         ["study_accession","cell_line","PERT_ENSEMBL","PERT_TYPE"]
@@ -162,8 +163,13 @@ rule make_evaluation_labels:
                     labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
             
             elif "singlecell" in f:
-                metadata["PERT_ID"] = metadata["PERT_ENSEMBL"]
+                metadata["study_accession"] = "ReplogleWeissman2022_"+dataset
+                metadata["cell_line"] = "K562" if "K562" in dataset else "RPE1"
                 metadata["PERT_TYPE"] = "KNOCKDOWN"
+                metadata["PERT_ID"] = metadata[
+                    ["study_accession","cell_line","PERT_ENSEMBL","PERT_TYPE"]
+                ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)
+
                 # "PERT_GENE" columns would be nice to have
                 labels = metadata[["PERT_ID","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates()
                 
@@ -179,7 +185,6 @@ rule make_evaluation_labels:
                 metadata["PERT_ID"] = metadata[
                     ["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]
                 ].apply(lambda row: '___'.join(row.values.astype(str)), axis=1)
-                
                 labels = metadata[["PERT_ID","PERT_GENE","PERT_ENSEMBL","PERT_TYPE"]].drop_duplicates()
 
                 # only simple perturbations
@@ -248,7 +253,6 @@ rule combine_evaluations:
             ) 
             for f in input.evaluations
         ])
-        evaluation["omic_type"] = params.omic_type
         
         print("Saving...")
         evaluation.to_csv(output[0], **SAVE_PARAMS)

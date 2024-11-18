@@ -1,7 +1,3 @@
-# Note
-# ----
-# WE ARE RUNNING METAVIPER!
-
 require(optparse)
 require(tidyverse)
 require(viper)
@@ -13,20 +9,13 @@ require(clusterProfiler)
 # ROOT = here::here()
 # PREP_DIR = file.path(ROOT,"data","prep")
 # RESULTS_DIR = file.path(ROOT,"results","regulon_inference")
-# signature_file = file.path(PREP_DIR,'ground_truth_pert','ENCOREKD',"K562",'delta_psi-EX.tsv.gz')
-# regulons_path = file.path(RESULTS_DIR,"files","aracne_and_experimental_regulons-genexpr")
-# regulons_path = file.path(RESULTS_DIR,"files","mlr_regulons_development-EX")
-# eval_labels_file = file.path(RESULTS_DIR,"files","regulon_evaluation_labels","ENASFS.tsv.gz")
-# regulons_path = file.path(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-EX")
-# regulons_path = file.path(RESULTS_DIR,"files","mlr_and_experimental_regulons-EX")
-
-# precomputed_activity_file = file.path(RESULTS_DIR,"files","benchmark_sf_genexpr_foldchange","ENCOREKO_K562.tsv.gz")
-# signature_file = file.path(PREP_DIR,'ground_truth_pert','ENASFS','delta_psi-EX.tsv.gz')
-# regulons_path = file.path(RESULTS_DIR,"files","top40_experimentally_derived_regulons_pruned-EX")
-# eval_labels_file = file.path(RESULTS_DIR,"files","regulon_evaluation_labels","ENCOREKO_K562.tsv.gz")
+# signature_file="~/projects/publication_regulation_cancer_asprograms/data/raw/viper_splicing_intermediary_files/benchmark/signatures_tpm_encorekd_hepg2.tsv.gz"
+# regulons_path="~/projects/publication_regulation_cancer_asprograms/results/network_inference/files/experimentally_derived_regulons_pruned-scgenexpr"
+# eval_labels_file="~/projects/publication_regulation_cancer_asprograms/results/network_inference/files/regulon_evaluation_labels/ENCOREKD_HepG2.tsv.gz"
 # shadow_correction = "no"
 # n_tails = "two"
-# method_activity = "gsea"
+# method_activity = "viper"
+# precomputed_activity_file = NULL
 
 ##### FUNCTIONS #####
 as_regulon_network = function(regulons){
