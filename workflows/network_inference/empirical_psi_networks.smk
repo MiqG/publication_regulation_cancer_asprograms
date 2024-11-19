@@ -21,7 +21,10 @@ rule all:
         
         # copy viper networks
         os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX"),
-        os.path.join(RESULTS_DIR,"files","viper_networks-EX")
+        os.path.join(RESULTS_DIR,"files","viper_networks-EX"),
+        
+        # figures
+        os.path.join(RESULTS_DIR,"figures","empirical_psi_networks")
         
 rule make_regulons:
     input:
@@ -185,3 +188,20 @@ rule copy_networks_from_viper_alone:
             subprocess.call(cmd)
         
         print("Done!")
+
+        
+rule figures_empirical_psi_networks:
+    input:
+        splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
+        networks_viper_alone_dir = os.path.join(RESULTS_DIR,"files","viper_networks-EX"),
+        networks_new_w_viper_dir = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
+    output:
+        directory(os.path.join(RESULTS_DIR,"figures","empirical_psi_networks"))
+    shell:
+        """
+        Rscript scripts/figures_empirical_psi_networks.R \
+                        --splicing_factors_file={input.splicing_factors} \
+                        --networks_viper_alone_dir={input.networks_viper_alone_dir} \
+                        --networks_new_w_viper_dir={input.networks_new_w_viper_dir} \
+                        --figs_dir={output}
+        """
