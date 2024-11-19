@@ -20,7 +20,8 @@ rule all:
         os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-EX"),
         
         # copy viper networks
-        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
+        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX"),
+        os.path.join(RESULTS_DIR,"files","viper_networks-EX")
         
 rule make_regulons:
     input:
@@ -146,6 +147,36 @@ rule copy_networks_from_viper_splicing_publication:
                 print(cmd)
                 subprocess.call(cmd)            
             
+        # copy viper networks
+        for f in input.viper_splicing_networks:
+            outfile = os.path.join(output.outdir,os.path.basename(f))
+            cmd = ["cp",f,outfile]
+            print(cmd)
+            subprocess.call(cmd)
+        
+        print("Done!")
+
+        
+rule copy_networks_from_viper_alone:
+    input:
+        viper_splicing_networks = [
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENASFS-metaexperiment0-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENASFS-metaexperiment1-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENASFS-metaexperiment2-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENASFS-metaexperiment3-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENCOREKD-HepG2-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENCOREKD-K562-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENCOREKO-HepG2-delta_psi.tsv.gz"),
+            os.path.join(RAW_DIR,"viper_splicing_networks","ENCOREKO-K562-delta_psi.tsv.gz")
+        ]
+    output:
+        outdir = directory(os.path.join(RESULTS_DIR,"files","viper_networks-EX"))
+    run:
+        import os
+        import subprocess
+        
+        os.makedirs(output.outdir, exist_ok=True)
+        
         # copy viper networks
         for f in input.viper_splicing_networks:
             outfile = os.path.join(output.outdir,os.path.basename(f))

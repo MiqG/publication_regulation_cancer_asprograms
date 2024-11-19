@@ -13,7 +13,7 @@ SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 VIPER_SPLICING_DIR = os.path.join(ROOT,"../../repositories/viper_splicing")
 
 PERT_SPLICING_FILES = {
-    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_ena.tsv.gz'),
     "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
     "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_k562.tsv.gz'),
     "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_hepg2.tsv.gz'),
@@ -22,15 +22,15 @@ PERT_SPLICING_FILES = {
 }
 
 PERT_GENEXPR_FILES = {
-    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
-    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
-    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
-    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
-    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
-    "Rogalska2024": os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz'),
-    "ReplogleWeissman2022_K562_essential-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
-    "ReplogleWeissman2022_rpe1-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
-    "ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz")
+    # "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    # "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
+    # "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
+    # "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
+    # "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
+    # "Rogalska2024": os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz'),
+    # "ReplogleWeissman2022_K562_essential-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+    # "ReplogleWeissman2022_rpe1-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
+    # "ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_gwps-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz")
 }
 
 PERT_EVAL_FILES = {
@@ -55,14 +55,17 @@ METADATA_FILES = [
 ]
 
 REGULON_SETS = {
-    "EX": ["experimentally_derived_regulons_pruned_w_viper_networks-EX"],
+    "EX": [
+        "experimentally_derived_regulons_pruned_w_viper_networks-EX",
+        "viper_networks-EX"
+    ],
     "genexpr": [
         "experimentally_derived_regulons_pruned-genexpr",
         "experimentally_derived_regulons_pruned-scgenexpr",
     ]
 }
 
-METHODS_ACTIVITY = ["viper"]#,"correlation_pearson","correlation_spearman"]#,"gsea"]
+METHODS_ACTIVITY = ["viper"]
 
 EVENT_TYPES = ["EX"]
 OMIC_TYPES = ["genexpr","scgenexpr"] + EVENT_TYPES
@@ -80,26 +83,21 @@ for o in OMIC_TYPES:
                 REGULON_SETS_LIST.append(r)
                 DATASETS_LIST.append(d)
                 
-# OMIC_TYPE_LIST = OMIC_TYPE_LIST[:4]
-# METHOD_ACTIVITY_LIST = METHOD_ACTIVITY_LIST[:4]
-# REGULON_SETS_LIST = REGULON_SETS_LIST[:4]
-# DATASETS_LIST = DATASETS_LIST[:4]
-
 ##### RULES #####
 rule all:
     input:
         # prepare evaluation labels
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels"),
+        os.path.join(RESULTS_DIR,"files","network_evaluation_labels"),
         
         # evaluate regulons
         ## run
         expand(
-            os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz"), 
+            os.path.join(RESULTS_DIR,"files","network_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz"), 
             zip, 
             method_activity=METHOD_ACTIVITY_LIST, regulon_set=REGULON_SETS_LIST, dataset=DATASETS_LIST, omic_type=OMIC_TYPE_LIST
         ),
         ## merge
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged.tsv.gz"),
+        os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz"),
         
         # figures
         os.path.join(RESULTS_DIR,"figures","network_evaluation")
@@ -109,7 +107,7 @@ rule make_evaluation_labels:
     input:
         metadatas = METADATA_FILES
     output:
-        output_dir = directory(os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels"))
+        output_dir = directory(os.path.join(RESULTS_DIR,"files","network_evaluation_labels"))
     run:
         import pandas as pd
         
@@ -144,7 +142,6 @@ rule make_evaluation_labels:
                     labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
             
             elif "Rogalska2024" in f:
-                    cell_line = "HELA_CERVIX"
                     dataset = "Rogalska2024"
                     
                     # make labels
@@ -160,7 +157,7 @@ rule make_evaluation_labels:
                     labels = labels.loc[labels["PERT_TYPE"].isin(perts_oi)]
                     
                     # save
-                    labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
+                    labels.dropna().to_csv(os.path.join(output.output_dir,"%s.tsv.gz") % dataset, **SAVE_PARAMS)
             
             elif "singlecell" in f:
                 dataset = os.path.basename(f).split("-")[0]
@@ -202,11 +199,11 @@ rule evaluate_regulons:
     input:
         signature = lambda wildcards: PERT_EVAL_FILES[OMIC_PERT_DICT[wildcards.omic_type]][wildcards.dataset],
         regulons = os.path.join(RESULTS_DIR,"files","{regulon_set}"),
-        eval_labels = os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels")
+        eval_labels = os.path.join(RESULTS_DIR,"files","network_evaluation_labels")
     output:
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz")
+        os.path.join(RESULTS_DIR,"files","network_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz")
     params:
-        eval_labels = os.path.join(RESULTS_DIR,"files","regulon_evaluation_labels","{dataset}.tsv.gz"),
+        eval_labels = os.path.join(RESULTS_DIR,"files","network_evaluation_labels","{dataset}.tsv.gz"),
         script_dir = SRC_DIR,
         shadow = "no",
         n_tails = "two",
@@ -232,11 +229,11 @@ rule evaluate_regulons:
 rule combine_evaluations:
     input:
         evaluations = [
-            os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz").format(method_activity=m, regulon_set=r, dataset=d, omic_type=o) 
+            os.path.join(RESULTS_DIR,"files","network_evaluation_scores","{method_activity}","{regulon_set}__{dataset}__{omic_type}.tsv.gz").format(method_activity=m, regulon_set=r, dataset=d, omic_type=o) 
             for (m, r, d, o) in zip(METHOD_ACTIVITY_LIST, REGULON_SETS_LIST, DATASETS_LIST, OMIC_TYPE_LIST)
         ]
     output:
-        os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged.tsv.gz")
+        os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz")
     run:
         import os
         import pandas as pd
@@ -263,21 +260,15 @@ rule combine_evaluations:
     
 rule figures_network_evaluation:
     input:
-        evaluation_ex = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-EX.tsv.gz"),
-        evaluation_genexpr = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-genexpr.tsv.gz"),
-        evaluation_scgenexpr = os.path.join(RESULTS_DIR,"files","regulon_evaluation_scores","merged-scgenexpr.tsv.gz"),
-        protein_activity_ex = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-EX.tsv.gz"),
-        protein_activity_genexpr = os.path.join(RESULTS_DIR,"files","protein_activity","ENCOREKD_K562-genexpr.tsv.gz"),
-        protein_activity_scgenexpr = os.path.join(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-scgenexpr.tsv.gz")
+        evaluation = os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz"),
+        splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
     output:
-        directory(os.path.join(RESULTS_DIR,"figures","eval_genexpr_vs_splicing"))
+        directory(os.path.join(RESULTS_DIR,"figures","network_evaluation"))
     shell:
         """
-        Rscript scripts/figures_eval_genexpr_vs_splicing.R \
-                    --evaluation_ex_file={input.evaluation_ex} \
-                    --evaluation_genexpr_file={input.evaluation_genexpr} \
-                    --protein_activity_ex_file={input.protein_activity_ex} \
-                    --protein_activity_genexpr_file={input.protein_activity_genexpr} \
+        Rscript scripts/figures_network_evaluation.R \
+                    --evaluation_file={input.evaluation} \
+                    --splicing_factors_file={input.splicing_factors} \
                     --figs_dir={output}
         """
        
