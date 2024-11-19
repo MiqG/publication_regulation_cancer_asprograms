@@ -13,20 +13,20 @@ SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 VIPER_SPLICING_DIR = os.path.join(ROOT,"../../repositories/viper_splicing")
 
 PERT_SPLICING_FILES = {
-    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
-    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_psi_encorekd_k562.tsv.gz'),
-    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_psi_encoreko_hepg2.tsv.gz'),
-    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_psi_encoreko_k562.tsv.gz'),
-    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
+    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_k562.tsv.gz'),
+    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_hepg2.tsv.gz'),
+    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_k562.tsv.gz'),
     "Rogalska2024": os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
 }
 
 PERT_GENEXPR_FILES = {
-    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
-    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
-    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
-    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
-    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
+    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
+    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
+    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
     "Rogalska2024": os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz'),
     "ReplogleWeissman2022_K562_essential-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
     "ReplogleWeissman2022_rpe1-pseudobulk_across_batches": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
@@ -45,9 +45,9 @@ OMIC_PERT_DICT = {
 }
 
 METADATA_FILES = [
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_encoreko.tsv.gz"),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_encorekd.tsv.gz"),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark',"metadata_ena.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark',"metadata_encoreko.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark',"metadata_encorekd.tsv.gz"),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark',"metadata_ena.tsv.gz"),
     os.path.join(PREP_DIR,"metadata","Rogalska2024.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-conditions.tsv.gz"),
     os.path.join(PREP_DIR,"singlecell","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-conditions.tsv.gz"),
@@ -62,7 +62,7 @@ REGULON_SETS = {
     ]
 }
 
-METHODS_ACTIVITY = ["viper","correlation_pearson","correlation_spearman"]#,"gsea"]
+METHODS_ACTIVITY = ["viper"]#,"correlation_pearson","correlation_spearman"]#,"gsea"]
 
 EVENT_TYPES = ["EX"]
 OMIC_TYPES = ["genexpr","scgenexpr"] + EVENT_TYPES
@@ -163,7 +163,8 @@ rule make_evaluation_labels:
                     labels.dropna().to_csv(os.path.join(output.output_dir,"%s_%s.tsv.gz") % (dataset, cell_line), **SAVE_PARAMS)
             
             elif "singlecell" in f:
-                metadata["study_accession"] = "ReplogleWeissman2022_"+dataset
+                dataset = os.path.basename(f).split("-")[0]
+                metadata["study_accession"] = dataset
                 metadata["cell_line"] = "K562" if "K562" in dataset else "RPE1"
                 metadata["PERT_TYPE"] = "KNOCKDOWN"
                 metadata["PERT_ID"] = metadata[
@@ -180,7 +181,7 @@ rule make_evaluation_labels:
                 dataset_file = os.path.basename(f).replace("-conditions","")
                 labels.dropna().to_csv(os.path.join(output.output_dir,dataset_file), **SAVE_PARAMS)
                 
-            elif "ENASFS" in f:
+            elif "_ena" in f:
                 # prepare labels
                 metadata["PERT_ID"] = metadata[
                     ["study_accession","cell_line_name","PERT_ENSEMBL","PERT_TYPE"]

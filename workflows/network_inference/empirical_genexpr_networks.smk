@@ -9,11 +9,11 @@ RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 PERT_GENEXPR_FILES = [
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
-    os.path.join(RAW_DIR,'viper_splicing_intermediary_files','benchmark','signatures_tpm_ena.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_hepg2.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encorekd_k562.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_hepg2.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_encoreko_k562.tsv.gz'),
+    os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_tpm_ena.tsv.gz'),
     os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz')
 ]
 
