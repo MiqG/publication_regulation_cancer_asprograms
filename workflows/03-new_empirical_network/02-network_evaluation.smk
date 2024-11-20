@@ -7,7 +7,7 @@ RAW_DIR = os.path.join(ROOT,"data","raw")
 PREP_DIR = os.path.join(ROOT,"data","prep")
 SRC_DIR = os.path.join(ROOT,"src")
 SUPPORT_DIR = os.path.join(ROOT,"support")
-RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
+RESULTS_DIR = os.path.join(ROOT,"results","new_empirical_network")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 VIPER_SPLICING_DIR = os.path.join(ROOT,"../../repositories/viper_splicing")

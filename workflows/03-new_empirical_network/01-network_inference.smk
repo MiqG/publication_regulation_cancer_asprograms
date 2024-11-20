@@ -5,7 +5,7 @@ ROOT = os.path.dirname(os.path.dirname(os.getcwd()))
 RAW_DIR = os.path.join(ROOT,"data","raw")
 PREP_DIR = os.path.join(ROOT,"data","prep")
 SUPPORT_DIR = os.path.join(ROOT,"support")
-RESULTS_DIR = os.path.join(ROOT,"results","network_inference")
+RESULTS_DIR = os.path.join(ROOT,"results","new_empirical_network")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 OMIC_TYPES = ["EX"]

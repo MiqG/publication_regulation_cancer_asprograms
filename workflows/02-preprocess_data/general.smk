@@ -7,11 +7,32 @@ RAW_DIR = os.path.join(ROOT,"data","raw")
 PREP_DIR = os.path.join(ROOT,"data","prep")
 SRC_DIR = os.path.join(ROOT,"src")
 SUPPORT_DIR = os.path.join(ROOT,"support")
+TCGA_DIR = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","tcga")
 
 # parameters
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 OMIC_TYPES = ["EX","genexpr_tpm"]
+
+CANCER_TYPES_PTSTN = [
+    'BLCA',
+    'BRCA',
+    'COAD',
+    'HNSC',
+    'KICH',
+    'KIRC',
+    'KIRP',
+    'LIHC',
+    'LUAD',
+    'LUSC',
+    'PRAD',
+    'STAD',
+    'THCA',
+    'UCEC'
+]
+
+SAMPLE_TYPES = ["SolidTissueNormal","PrimaryTumor"]
+
 
 ##### RULES #####
 rule all:
@@ -43,7 +64,12 @@ rule all:
         os.path.join(PREP_DIR,"signatures","Rogalska2024-EX.tsv.gz"),
         os.path.join(PREP_DIR,"signatures","Rogalska2024-genexpr_tpm.tsv.gz"),
         os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz'),
-        os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz')
+        os.path.join(PREP_DIR,'log2_fold_change_tpm','Rogalska2024-genexpr_tpm.tsv.gz'),
+        
+        # TCGA for network inference
+        ## split by cancer type and sample type
+        expand(os.path.join(PREP_DIR,"event_psi","{cancer}-{sample}-EX.tsv.gz"), cancer=CANCER_TYPES_PTSTN, sample=SAMPLE_TYPES),
+        expand(os.path.join(PREP_DIR,"genexpr_tpm","{cancer}-{sample}.tsv.gz"), cancer=CANCER_TYPES_PTSTN, sample=SAMPLE_TYPES)
         
         
 rule preprocess_stringdb:
@@ -413,3 +439,62 @@ rule prepare_log2_fold_change_tpm:
         
         print("Done!")    
         
+        
+rule split_event_psi_by_cancer_and_sample_type:
+    input:
+        metadata = os.path.join(TCGA_DIR,"metadata","{cancer}.tsv.gz"),
+        psi = os.path.join(TCGA_DIR,"event_psi","{cancer}-EX.tsv.gz")
+    output:
+        psi = os.path.join(PREP_DIR,"event_psi","{cancer}-{sample}-EX.tsv.gz")
+    params:
+        cancer_type = "{cancer}",
+        sample_type = "{sample}"
+    run:
+        import pandas as pd
+        
+        metadata = pd.read_table(input.metadata)
+        psi = pd.read_table(input.psi, index_col=0)
+        cancer_type = params.cancer_type
+        sample_type = params.sample_type
+        
+        idx = (metadata["cancer_type"]==cancer_type) & (metadata["sample_type_clean"]==sample_type)
+        samples_oi = metadata.loc[idx,"sampleID"].values
+        
+        psi = psi[samples_oi]
+        print(psi.shape)
+        
+        if psi.shape[1]>0:
+            print("Saving...")
+            psi.reset_index().to_csv(output.psi, **SAVE_PARAMS)
+        
+        print("Done!")
+
+
+rule split_genexpr_tpm_by_cancer_and_sample_type:
+    input:
+        metadata = os.path.join(TCGA_DIR,"metadata","{cancer}.tsv.gz"),
+        genexpr = os.path.join(TCGA_DIR,"genexpr_tpm","{cancer}.tsv.gz")
+    output:
+        genexpr = os.path.join(PREP_DIR,"genexpr_tpm","{cancer}-{sample}.tsv.gz")
+    params:
+        cancer_type = "{cancer}",
+        sample_type = "{sample}"
+    run:
+        import pandas as pd
+        
+        metadata = pd.read_table(input.metadata)
+        genexpr = pd.read_table(input.genexpr, index_col=0)
+        cancer_type = params.cancer_type
+        sample_type = params.sample_type
+        
+        idx = (metadata["cancer_type"]==cancer_type) & (metadata["sample_type_clean"]==sample_type)
+        samples_oi = metadata.loc[idx,"sampleID"].values
+        
+        genexpr = genexpr[samples_oi]
+        print(genexpr.shape)
+        
+        if genexpr.shape[1]>0:
+            print("Saving...")
+            genexpr.reset_index().to_csv(output.genexpr, **SAVE_PARAMS)
+        
+        print("Done!")
