@@ -9,7 +9,6 @@ SUPPORT_DIR = os.path.join(ROOT,"support")
 SRC_DIR = os.path.join(ROOT,"src")
 RESULTS_DIR = os.path.join(ROOT,"results","new_empirical_network")
 TCGA_DIR = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","tcga")
-
 REGULONS_PATH = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
 
 # parameters
