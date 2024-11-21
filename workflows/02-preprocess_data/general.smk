@@ -33,7 +33,6 @@ CANCER_TYPES_PTSTN = [
 
 SAMPLE_TYPES = ["SolidTissueNormal","PrimaryTumor"]
 
-
 ##### RULES #####
 rule all:
     input:
@@ -69,7 +68,15 @@ rule all:
         # TCGA for network inference
         ## split by cancer type and sample type
         expand(os.path.join(PREP_DIR,"event_psi","{cancer}-{sample}-EX.tsv.gz"), cancer=CANCER_TYPES_PTSTN, sample=SAMPLE_TYPES),
-        expand(os.path.join(PREP_DIR,"genexpr_tpm","{cancer}-{sample}.tsv.gz"), cancer=CANCER_TYPES_PTSTN, sample=SAMPLE_TYPES)
+        expand(os.path.join(PREP_DIR,"genexpr_tpm","{cancer}-{sample}.tsv.gz"), cancer=CANCER_TYPES_PTSTN, sample=SAMPLE_TYPES),
+        
+        # preprocess ENA datasets
+        os.path.join(PREP_DIR,"metadata","ipsc_differentiation.tsv.gz"),
+        os.path.join(PREP_DIR,"event_psi","ipsc_differentiation-EX.tsv.gz"),
+        os.path.join(PREP_DIR,"event_psi","ipsc_differentiation-ALTA.tsv.gz"),
+        os.path.join(PREP_DIR,"event_psi","ipsc_differentiation-ALTD.tsv.gz"),
+        os.path.join(PREP_DIR,"event_psi","ipsc_differentiation-INT.tsv.gz"),
+        os.path.join(PREP_DIR,"genexpr_tpm","ipsc_differentiation.tsv.gz"),        
         
         
 rule preprocess_stringdb:
@@ -496,5 +503,84 @@ rule split_genexpr_tpm_by_cancer_and_sample_type:
         if genexpr.shape[1]>0:
             print("Saving...")
             genexpr.reset_index().to_csv(output.genexpr, **SAVE_PARAMS)
+        
+        print("Done!")
+        
+        
+rule preprocess_ipsc_differentiation:
+    input:
+        metadata = os.path.join(SUPPORT_DIR,"ENA_filereport-ipsc_differentiation.tsv"),
+        psi = os.path.join(RAW_DIR,"ENA","ipsc_differentiation",'vast_out','PSI-minN_1-minSD_0-noVLOW-min_ALT_use25-Tidy.tab.gz'),
+        genexpr = os.path.join(RAW_DIR,"ENA","ipsc_differentiation",'vast_out','TPM-hg38-217.tab.gz')
+    output:
+        metadata = os.path.join(PREP_DIR,"metadata","ipsc_differentiation.tsv.gz"),
+        psi_EX = os.path.join(PREP_DIR,'event_psi','ipsc_differentiation-EX.tsv.gz'),
+        psi_ALTA = os.path.join(PREP_DIR,'event_psi','ipsc_differentiation-ALTA.tsv.gz'),
+        psi_ALTD = os.path.join(PREP_DIR,'event_psi','ipsc_differentiation-ALTD.tsv.gz'),
+        psi_INT = os.path.join(PREP_DIR,'event_psi','ipsc_differentiation-INT.tsv.gz'),
+        genexpr = os.path.join(PREP_DIR,'genexpr_tpm','ipsc_differentiation.tsv.gz')      
+    run:
+        import gc
+        import pandas as pd
+        import numpy as np
+        
+        # load
+        print("Loading data...")
+        metadata = pd.read_table(input.metadata)
+        psi = pd.read_table(input.psi, index_col=0)
+        genexpr = pd.read_table(input.genexpr, index_col=[0,1])
+        
+        gc.collect()
+        
+        # metadata
+        metadata["sampleID"] = metadata["run_accession"]
+        
+        # PSI
+        print("Processing PSI matrix...")
+        ## drop empty rows
+        is_na = psi.isnull()
+        non_missing = is_na.shape[1] - is_na.sum(1)
+        to_keep = non_missing >= 1
+        psi = psi.loc[to_keep]
+        
+        ## remove vast-tools' suffix
+        psi.columns = [c.replace('_1','') for c in psi.columns]
+        
+        ## split by event type
+        event_types = ["EX","ALTA","ALTD","INT"]
+        psis = {e: psi.loc[psi.index.str.contains(e)] for e in event_types}
+        
+        # TPM
+        print("Processing TPM matrix...")
+        ## remove vast-tools' suffix
+        genexpr.columns = [c.replace('_1','') for c in genexpr.columns]
+        
+        ## log-transform
+        genexpr = np.log2(genexpr + 1)
+        
+        # subset
+        ## find common samples
+        common_samples = list(set(metadata["run_accession"]).intersection(
+            psis["EX"].columns
+        ).intersection(
+            genexpr.columns
+        ))
+        psis = {e: psis[e][common_samples].copy() for e in event_types}
+        genexpr = genexpr[common_samples].copy()
+        metadata = metadata.loc[metadata["run_accession"].isin(common_samples)]
+        
+        # save
+        print("Saving...")
+        ## metadata
+        metadata.to_csv(output.metadata, **SAVE_PARAMS)
+
+        ## PSIs
+        psis["EX"].reset_index().to_csv(output.psi_EX, **SAVE_PARAMS)
+        psis["ALTD"].reset_index().to_csv(output.psi_ALTD, **SAVE_PARAMS)
+        psis["ALTA"].reset_index().to_csv(output.psi_ALTA, **SAVE_PARAMS)
+        psis["INT"].reset_index().to_csv(output.psi_INT, **SAVE_PARAMS)
+        
+        ## TPMs
+        genexpr.reset_index().drop(columns='NAME').to_csv(output.genexpr, **SAVE_PARAMS)
         
         print("Done!")
