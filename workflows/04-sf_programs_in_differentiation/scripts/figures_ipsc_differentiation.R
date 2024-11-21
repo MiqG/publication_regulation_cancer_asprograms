@@ -48,9 +48,7 @@ require(optparse)
 require(tidyverse)
 require(ggpubr)
 require(cowplot)
-require(scattermore)
 require(extrafont)
-require(ggrepel)
 
 # variables
 RANDOM_SEED = 1234
@@ -178,23 +176,16 @@ plot_cancer_programs = function(protein_activity, genexpr){
             summarize(activity_diff = sum(activity)) %>%
             ungroup() %>%
             mutate(condition=factor(condition, levels=DEV_STAGES[[study_oi]])) %>%
-            ggplot(aes(x=condition, y=activity_diff)) +
-            geom_line(linewidth=LINE_SIZE, linetype="dashed", color=PAL_DARK) +
-            geom_violin(aes(fill=driver_type), color=NA, position=position_dodge(0.9)) +
-            geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
-            fill_palette(PAL_DRIVER_TYPE) +
-            stat_compare_means(method="wilcox.test", label="p.format", size=FONT_SIZE, family=FONT_FAMILY) + 
-            geom_text(
-                aes(y=-3, label=label, group=driver_type),
-                . %>% count(condition, driver_type) %>% mutate(label=paste0("n=",n)),
-                size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9)
+            ggline(
+                x="condition", y="activity_diff", color=PAL_DARK, 
+                size=LINE_SIZE, point.size=0.05
             ) +
             theme_pubr(x.text.angle=45) +
             facet_wrap(~study_accession, scales="free") +
             theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
             labs(x="IPSC Differentiation Stage", y="Protein Activity Diff.", fill="Driver Type")
 
-        plts[[sprintf("cancer_programs-differentiation_vs_mki67-%s-violin",study_oi)]] = genexpr %>%
+        plts[[sprintf("cancer_programs-differentiation_vs_mki67-%s-box",study_oi)]] = genexpr %>%
             filter(ID=="ENSG00000148773" & study_accession==study_oi) %>%
             mutate(condition=factor(condition, levels=DEV_STAGES[[study_oi]])) %>%
             ggplot(aes(x=condition, y=genexpr_tpm)) +
@@ -214,21 +205,20 @@ plot_cancer_programs = function(protein_activity, genexpr){
     return(plts)
 }
 
-make_plots = function(genexpr, protein_activity, metadata){
+make_plots = function(protein_activity, genexpr){
     plts = list(
-        plot_eda_differentiation(genexpr, protein_activity, metadata),
+        plot_cancer_programs(protein_activity, genexpr)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 
-make_figdata = function(genexpr, protein_activity, metadata){
+make_figdata = function(protein_activity, genexpr){
     figdata = list(
         "validation_drug_target_activity" = list(
             "genexpr" = genexpr,
-            "protein_activity" = protein_activity,
-            "metadata" = metadata
+            "protein_activity" = protein_activity
         )
     )
     return(figdata)
@@ -251,7 +241,25 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 
 save_plots = function(plts, figs_dir){
-    save_plt(plts, "eda_differentiation-top_assocs-activity-line-PRJEB1195", '.pdf', figs_dir, width=5, height=8)
+    
+    # activity
+    save_plt(plts, "cancer_programs-differentiation_vs_activity-PRJEB1195-violin", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity-PRJNA379280-violin", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity-PRJNA596331-violin", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity-PRJNA665705-violin", '.pdf', figs_dir, width=5, height=8)
+    
+    # activity diff
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-PRJEB1195-line", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-PRJNA379280-line", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-PRJNA596331-line", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-PRJNA665705-line", '.pdf', figs_dir, width=5, height=8)
+    
+    # MKI67
+    save_plt(plts, "cancer_programs-differentiation_vs_mki67-PRJEB1195-box", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_mki67-PRJNA379280-box", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_mki67-PRJNA596331-box", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-differentiation_vs_mki67-PRJNA665705-box", '.pdf', figs_dir, width=5, height=8)
+    
 }
 
 save_figdata = function(figdata, dir){
@@ -274,7 +282,7 @@ parseargs = function(){
         make_option("--genexpr_file", type="character"),
         make_option("--protein_activity_file", type="character"),
         make_option("--metadata_file", type="character"),
-        make_option("--annotation_file", type="character"),
+        make_option("--driver_types_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -289,7 +297,7 @@ main = function(){
     genexpr_file = args[["genexpr_file"]]
     protein_activity_file = args[["protein_activity_file"]]
     metadata_file = args[["metadata_file"]]
-    annotation_file = args[["annotation_file"]]
+    driver_types_file = args[["driver_types_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
@@ -353,14 +361,14 @@ main = function(){
         left_join(driver_types, by=c("ID"="ENSEMBL"))
     
     # plot
-    plts = make_plots(genexpr, protein_activity, metadata)
+    plts = make_plots(protein_activity, genexpr)
     
     # make figdata
-    figdata = make_figdata(genexpr, protein_activity, metadata)
+    #figdata = make_figdata(protein_activity, genexpr)
 
     # save
     save_plots(plts, figs_dir)
-    save_figdata(figdata, figs_dir)
+    #save_figdata(figdata, figs_dir)
 }
 
 

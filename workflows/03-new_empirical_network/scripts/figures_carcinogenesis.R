@@ -23,6 +23,7 @@ PAL_DRIVER_TYPE = c(
     "Oncogenic"="#F6AE2D"
 )
 
+PAL_DARK = "darkred"
 
 # Development
 # -----------
@@ -31,9 +32,9 @@ PAL_DRIVER_TYPE = c(
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","new_empirical_network")
-# genexpr_file = file.path(PREP_DIR,"genexpr_tpm","tumorigenesis.tsv.gz")
+# genexpr_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","genexpr_tpm","tumorigenesis.tsv.gz")
 # protein_activity_file = file.path(RESULTS_DIR,"files","protein_activity","carcinogenesis-EX.tsv.gz")
-# metadata_file = file.path(PREP_DIR,"metadata","tumorigenesis.tsv.gz")
+# metadata_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","tumorigenesis.tsv.gz")
 # driver_types_file = file.path(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
 # figs_dir = file.path(RESULTS_DIR,"figures","carcinogenesis")
 
@@ -64,6 +65,21 @@ plot_carcinogenesis = function(protein_activity, genexpr){
         ) +
         theme_pubr() +
         labs(x="Cell Line", y="Protein Activity", fill="Driver Type")
+    
+    plts[["carcinogenesis-cell_line_vs_activity_diff-line"]] = X %>%
+        filter(cell_line_name!="BJ_PRIMARY") %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(cell_line_name, study_accession, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(cell_line_name, study_accession) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        ggline(
+            x="cell_line_name", y="activity_diff", color=PAL_DARK, numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05
+        ) +
+        labs(x="Cell Line", y="Protein Activity Diff.")
 
     # genexpr
     X = genexpr %>%
@@ -171,6 +187,7 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 save_plots = function(plts, figs_dir){
     save_plt(plts, "carcinogenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=6, height=6)
+    save_plt(plts, "carcinogenesis-cell_line_vs_activity_diff-line", '.pdf', figs_dir, width=6, height=6)
     save_plt(plts, "carcinogenesis-cell_line_vs_genexpr_fc-violin", '.pdf', figs_dir, width=6, height=6)
     save_plt(plts, "carcinogenesis-cell_line_vs_activity-random-violin", '.pdf', figs_dir, width=6, height=6)
 }

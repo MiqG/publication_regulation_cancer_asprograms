@@ -35,8 +35,9 @@ rule all:
         # protein activities
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX.tsv.gz"), dataset=DATASETS),
 
-        # # figures
-        # os.path.join(RESULTS_DIR,"figures","differentiation")
+        # figures
+        os.path.join(RESULTS_DIR,"figures","ipsc_differentiation"),
+        os.path.join(RESULTS_DIR,"figures","CardosoMoreira2020")
     
     
 rule compute_signatures:
@@ -121,7 +122,7 @@ rule figures_ipsc_differentiation:
         metadata = os.path.join(PREP_DIR,"metadata","ipsc_differentiation.tsv.gz"),
         genexpr = os.path.join(PREP_DIR,"genexpr_tpm","ipsc_differentiation.tsv.gz"),
         protein_activity = os.path.join(RESULTS_DIR,"files","protein_activity","ipsc_differentiation-EX.tsv.gz"),
-        driver_types = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+        driver_types = DRIVER_TYPES_PATH
     output:
         directory(os.path.join(RESULTS_DIR,"figures","ipsc_differentiation"))
     shell:
@@ -139,9 +140,9 @@ rule figures_CardosoMoreira2020:
         metadata = os.path.join(DATASET_DIR,"metadata","CardosoMoreira2020.tsv.gz"),
         genexpr = os.path.join(DATASET_DIR,"genexpr_tpm","CardosoMoreira2020.tsv.gz"),
         protein_activity = os.path.join(RESULTS_DIR,"files","protein_activity","CardosoMoreira2020-EX.tsv.gz"),
-        driver_types = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+        driver_types = DRIVER_TYPES_PATH
     output:
-        directory(os.path.join(RESULTS_DIR,"figures","ipsc_differentiation"))
+        directory(os.path.join(RESULTS_DIR,"figures","CardosoMoreira2020"))
     shell:
         """
         Rscript scripts/figures_CardosoMoreira2020.R \
