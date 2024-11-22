@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import lightning as L
+from torchmetrics.regression import PearsonCorrCoef
 
 class ElementwiseLinear(nn.Module):
     def __init__(self, input_size: int) -> None:
@@ -39,6 +40,7 @@ class LitWrapper(L.LightningModule):
         self.criterion = criterion
         self.learning_rate = learning_rate
         self.losses = []
+        self.pearson = PearsonCorrCoef()
 
     def forward(self, x):
         return self.model(x)
@@ -47,9 +49,11 @@ class LitWrapper(L.LightningModule):
         x, y = batch
         y_pred = self(x)
         loss = self.criterion(y_pred, y)
+        corr_pearson = self.pearson(y_pred.ravel(), y.ravel())
         self.log('train_loss', loss)
+        self.log('train_pearson', corr_pearson)
         self.losses.append(
-            {"epoch": self.current_epoch, "batch": batch_idx, "train_loss": float(loss)}
+            {"epoch": self.current_epoch, "batch": batch_idx, "train_loss": float(loss), "train_pearson": float(corr_pearson)}
         )
         return loss
 
@@ -57,9 +61,11 @@ class LitWrapper(L.LightningModule):
         x, y = batch
         y_pred = self(x)
         loss = self.criterion(y_pred, y)
+        corr_pearson = self.pearson(y_pred.ravel(), y.ravel())
         self.log('val_loss', loss)
+        self.log('val_pearson', corr_pearson)
         self.losses.append(
-            {"epoch": self.current_epoch, "batch": batch_idx, "val_loss": float(loss)}
+            {"epoch": self.current_epoch, "batch": batch_idx, "val_loss": float(loss), "val_pearson": float(corr_pearson)}
         )
         return loss
 
