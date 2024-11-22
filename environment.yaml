@@ -1,0 +1,45 @@
+name: publication_viper_splicing
+channels:
+    - conda-forge
+    - bioconda
+    - pytorch
+dependencies:
+    - snakemake=7.32.4
+    - pytorch
+    - lightning
+    - pandas
+    - numpy
+    - joblib
+    - scikit-learn
+    - statsmodels
+    - tqdm
+    - networkx
+    - scipy
+    - csvkit
+    - pyranges
+    - r-base=4.1
+    - r-tidyverse
+    - r-ggpubr
+    - r-cowplot
+    - r-extrafont
+    - r-ggbeeswarm
+    - r-ggplotify
+    - r-ggrepel
+    - r-ggvenn
+    - r-optparse
+    - r-proc
+    - r-proxy
+    - r-readxl
+    - r-scales
+    - r-scattermore
+    - r-survival
+    - r-survminer
+    - r-umap
+    - r-purrr
+    - r-matrixstats
+    - bioconductor-viper
+    - bioconductor-clusterprofiler
+    - bioconductor-complexheatmap
+    - bioconductor-org.Hs.eg.db
+    - bioconductor-deseq2
+    

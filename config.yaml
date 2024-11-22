@@ -1,0 +1,3 @@
+PATHS:
+    VAST_TOOLS_DIR: "~/repositories/vast-tools"
+    VASTDB_DIR: "~/projects/publication_viper_splicing/data/raw/VastDB/assemblies"
