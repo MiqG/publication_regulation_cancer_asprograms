@@ -1,11 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquel [dot] anglada [at] crg [dot] eu
-#
-# Script purpose
-# --------------
-
-Sys.setenv(VROOM_CONNECTION_SIZE='1000000')
 require(optparse)
 require(tidyverse)
 require(ggpubr)
@@ -14,6 +6,8 @@ require(scattermore)
 require(extrafont)
 
 # variables
+FIBROBLASTS = c("BJ_PRIMARY","BJ_IMMORTALIZED","BJ_TRANSFORMED","BJ_METASTATIC")
+LAB_ORDER = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA')
 
 # formatting
 LINE_SIZE = 0.25
@@ -33,14 +27,19 @@ PAL_DRIVER_TYPE = c(
 )
 
 ACTIVITY_TYPES = c(
-    "activity_ex", "activity_genexpr", "activity_scgenexpr", 
-    "activity_ew_model_genexpr", "activity_fc_model_genexpr",  
-    "activity_ew_model_scgenexpr", "activity_fc_model_scgenexpr"
+    'EX',
+    'bulkgenexpr',
+    'bulkgenexpr-adjusted_ewlayer',
+    'bulkgenexpr-adjusted_fclayer',
+    'bulkscgenexpr',
+    'bulkscgenexpr-adjusted_ewlayer',
+    'bulkscgenexpr-adjusted_fclayer',
+    'scgenexpr',
+    'scgenexpr-adjusted_ewlayer',
+    'scgenexpr-adjusted_fclayer'
 )
-
 PAL_ACTIVITY_TYPES = setNames(get_palette("Dark2", length(ACTIVITY_TYPES)), ACTIVITY_TYPES)
 
-LAB_ORDER = c("BJ_PRIMARY","BJ_IMMORTALIZED","BJ_TRANSFORMED","BJ_METASTATIC")
 
 # Development
 # -----------
@@ -48,110 +47,146 @@ LAB_ORDER = c("BJ_PRIMARY","BJ_IMMORTALIZED","BJ_TRANSFORMED","BJ_METASTATIC")
 # RAW_DIR = file.path(ROOT,'data','raw')
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
-# RESULTS_DIR = file.path(ROOT,"results","network_inference")
-# protein_activity_ex_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-EX.tsv.gz")
-# protein_activity_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-genexpr.tsv.gz")
-# protein_activity_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-scgenexpr.tsv.gz")
-# protein_activity_ew_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-EX_from_model_ewlayer_and_genexpr.tsv.gz")
-# protein_activity_ew_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-EX_from_model_ewlayer_and_scgenexpr.tsv.gz")
-# protein_activity_fc_model_genexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-EX_from_model_fclayer_and_genexpr.tsv.gz")
-# protein_activity_fc_model_scgenexpr_file = file.path(RESULTS_DIR,"files","protein_activity","tumorigenesis-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# RESULTS_DIR = file.path(ROOT,"results","activity_estimation_w_genexpr")
+# protein_activity_bulk_file = file.path(RESULTS_DIR,"files","protein_activity","carcinogenesis-merged.tsv.gz")
+# protein_activity_singlecell_file = file.path(RESULTS_DIR,"files","protein_activity","Hodis2022-invitro_eng_melanoc-merged.tsv.gz")
 # cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
-
-# PREP_VIPER_DIR = file.path(dirname(ROOT),"publication_viper_splicing","data","prep")
-# metadata_file = file.path(PREP_VIPER_DIR,"metadata","tumorigenesis.tsv.gz")
-# figs_dir = file.path(RESULTS_DIR,"figures","eval_tumorigenesis")
-
-# gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz")
-# gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-reactome.tsv.gz")
+# metadata_bulk_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","tumorigenesis.tsv.gz")
+# metadata_singlecell_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz")
+# driver_types_file = file.path(ROOT,"results","new_empirical_network",'files','PANCAN','cancer_program.tsv.gz')
+# figs_dir = file.path(RESULTS_DIR,"figures","eval_carcinogenesis")
 
 ##### FUNCTIONS #####
-plot_tumorigenesis = function(protein_activity){
+plot_eval_bulk = function(protein_activity_bulk){
     plts = list()
     
-    X = protein_activity %>%
-        filter(study_accession=="PRJNA193487") %>%
+    X = protein_activity_bulk %>%
         drop_na(driver_type) %>%
-        group_by(cell_line_name, driver_type, study_accession, GENE) %>%
-        summarize(
-            activity_ex = median(activity_ex),
-            activity_scgenexpr = median(activity_scgenexpr),
-            activity_genexpr = median(activity_genexpr),
-            activity_ew_model_genexpr = median(activity_ew_model_genexpr),
-            activity_ew_model_scgenexpr = median(activity_ew_model_scgenexpr),
-            activity_fc_model_genexpr = median(activity_fc_model_genexpr),
-            activity_fc_model_scgenexpr = median(activity_fc_model_scgenexpr)
-        ) %>%
+        group_by(dataset_id, omic_type, model_type, cell_line_name, driver_type, study_accession, GENE) %>%
+        summarize(activity = median(activity)) %>%
         ungroup() %>%
-        mutate(cell_line_name=factor(
-            cell_line_name, levels=LAB_ORDER
-        ))
-    
-    x = X %>%
-        pivot_longer(
-            c(activity_scgenexpr, activity_genexpr, activity_ex,
-              activity_ew_model_genexpr, activity_ew_model_scgenexpr,
-              activity_fc_model_genexpr, activity_fc_model_scgenexpr), 
-            names_to="activity_type", 
-            values_to="activity"
-        ) %>%
         mutate(
-            activity_type = factor(activity_type, levels=ACTIVITY_TYPES)
+            cell_line_name = factor(cell_line_name, levels=FIBROBLASTS),
+            dataset_id = gsub("carcinogenesis-","",dataset_id)
         )
     
-    plts[["tumorigenesis-cell_line_vs_activity-violin"]] = x %>%
-        filter(cell_line_name!="BJ_PRIMARY") %>%
-        ggplot(aes(x=cell_line_name, y=activity, group=interaction(cell_line_name,driver_type))) +
-        geom_violin(aes(fill=driver_type), color=NA, position=position_dodge(0.9)) +
-        geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
-        fill_palette(PAL_DRIVER_TYPE) +
-        theme_pubr() + 
-        facet_wrap(~activity_type, ncol=4) +
-        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        stat_compare_means(method="wilcox.test", label="p.signif", size=FONT_SIZE, family=FONT_FAMILY) + 
-        labs(x="Cell Line", y="Protein Activity", fill="Driver Type")
-
-    x = x %>%
-        group_by(driver_type, activity_type, cell_line_name) %>%
-        summarize(
-            activity = median(activity)
-        ) %>%
+    plts[["eval_bulk-cell_line_vs_activity_diff-raw-line"]] = X %>%
+        filter(cell_line_name!="BJ_PRIMARY" & is.na(model_type)) %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession, driver_type) %>%
+        summarize(activity = median(activity)) %>%
         ungroup() %>%
-        pivot_wider(id_cols=c("cell_line_name","activity_type"), names_from="driver_type", values_from="activity") %>%
-        mutate(
-            program_fc = `Oncogenic` - `Tumor suppressor`,
-            is_model = str_detect(activity_type, "model")
-        )
-    
-    plts[["tumorigenesis-cell_line_vs_program_fc-line"]] = x %>%
-        filter(cell_line_name!="BJ_PRIMARY") %>%
+        group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
         ggline(
-            x="cell_line_name", y="program_fc", color="activity_type", 
-            palette=PAL_ACTIVITY_TYPES, size=LINE_SIZE, point.size=0.05
+            x="cell_line_name", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
         ) +
-        geom_hline(yintercept = 0, linetype="dashed", linewidth=LINE_SIZE) +
-        theme_pubr(x.text.angle = 45) + 
-        facet_wrap(~is_model) +
-        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        labs(x="Carcinogenic Stage", y="Oncogenic vs Tumor Suppressor Activity", color="SF Network")   
+        geom_hline(yintercept=0, linetype="dashed", color="black") +
+        labs(x="Cell Line", y="Protein Activity Diff.", color="Network")
+
+    plts[["eval_bulk-cell_line_vs_activity_diff-adjusted-line"]] = X %>%
+        filter(cell_line_name!="BJ_PRIMARY" & !is.na(model_type) & str_detect(dataset_id,"fclayer")) %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        ggline(
+            x="cell_line_name", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
+        ) +
+        geom_hline(yintercept=0, linetype="dashed", color="black") +
+        labs(x="Cell Line", y="Protein Activity Diff.", color="Network & Adjustment")
     
     return(plts)
 }
 
+plot_eval_singlecell = function(protein_activity_singlecell){
+    plts = list()
+    
+    X = protein_activity_singlecell %>%
+        drop_na(driver_type) %>%
+        group_by(dataset_id, omic_type, model_type, treatment, driver_type, GENE) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        mutate(
+            treatment = factor(treatment, levels=LAB_ORDER),
+            dataset_id = gsub("Hodis2022_invitro_eng_melanoc-","",dataset_id)
+        )
+    
+    plts[["eval_singlecell-stage_vs_activity_diff-raw-line"]] = X %>%
+        drop_na(driver_type) %>%
+        filter(treatment!="WT" & !str_detect(dataset_id,"ewlayer") & is.na(model_type)) %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(dataset_id, treatment, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(dataset_id, treatment) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        ggline(
+            x="treatment", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
+        ) +
+        geom_hline(yintercept=0, linetype="dashed", color="black") +
+        labs(x="Carcinogenic Stage", y="Protein Activity Diff.", color="Network")
+    
+    plts[["eval_singlecell-stage_vs_activity_diff-adjusted-line"]] = X %>%
+        drop_na(driver_type) %>%
+        filter(treatment!="WT" & !str_detect(dataset_id,"ewlayer") & !is.na(model_type)) %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(dataset_id, treatment, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(dataset_id, treatment) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        ggline(
+            x="treatment", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
+        ) +
+        geom_hline(yintercept=0, linetype="dashed", color="black") +
+        labs(x="Carcinogenic Stage", y="Protein Activity Diff.", color="Network & Adjustment")
+    
+    plts[["eval_singlecell-stage_vs_activity_diff-best-line"]] = X %>%
+        drop_na(driver_type) %>%
+        filter(treatment!="WT" & str_detect(dataset_id,"bulkgenexpr") & !str_detect(dataset_id,"ewlayer") & !is.na(model_type)) %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(dataset_id, treatment, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(dataset_id, treatment) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        ggline(
+            x="treatment", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
+        ) +
+        geom_hline(yintercept=0, linetype="dashed", color="black") +
+        labs(x="Carcinogenic Stage", y="Protein Activity Diff.", color="Network & Adjustment")
 
-make_plots = function(protein_activity){
+    return(plts)
+}
+
+make_plots = function(protein_activity_bulk, protein_activity_singlecell){
     plts = list(
-        plot_tumorigenesis(protein_activity)
+        plot_eval_bulk(protein_activity_bulk),
+        plot_eval_singlecell(protein_activity_singlecell)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 
-make_figdata = function(protein_activity){
+make_figdata = function(protein_activity_bulk, protein_activity_singlecell){
     figdata = list(
-        "eval_tumorigenesis" = list(
-            "protein_activity" = protein_activity
+        "eval_carcinogenesis" = list(
+            "protein_activity_bulk" = protein_activity_bulk,
+            "protein_activity_singlecell" = protein_activity_singlecell
         )
     )
     return(figdata)
@@ -174,8 +209,12 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 
 save_plots = function(plts, figs_dir){
-    save_plt(plts, "tumorigenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=12, height=10)
-    save_plt(plts, "tumorigenesis-cell_line_vs_program_fc-line", '.pdf', figs_dir, width=12, height=8)
+    save_plt(plts, "eval_bulk-cell_line_vs_activity_diff-raw-line", '.pdf', figs_dir, width=6, height=6)
+    save_plt(plts, "eval_bulk-cell_line_vs_activity_diff-adjusted-line", '.pdf', figs_dir, width=6, height=6)
+    
+    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-raw-line", '.pdf', figs_dir, width=7, height=6)
+    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-adjusted-line", '.pdf', figs_dir, width=7, height=6)
+    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-best-line", '.pdf', figs_dir, width=7, height=6)
 }
 
 
@@ -197,9 +236,11 @@ save_figdata = function(figdata, dir){
 parseargs = function(){
     
     option_list = list( 
-        make_option("--protein_activity_genexpr_file", type="character"),
-        make_option("--protein_activity_scgenexpr_file", type="character"),
-        make_option("--cancer_program_file", type="character"),
+        make_option("--protein_activity_bulk_file", type="character"),
+        make_option("--protein_activity_singlecell_file", type="character"),
+        make_option("--metadata_bulk_file", type="character"),
+        make_option("--metadata_singlecell_file", type="character"),
+        make_option("--driver_types_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -211,94 +252,58 @@ parseargs = function(){
 main = function(){
     args = parseargs()
     
-    protein_activity_genexpr_file = args[["protein_activity_genexpr_file"]]
-    protein_activity_scgenexpr_file = args[["protein_activity_scgenexpr_file"]]
-    cancer_program_file = args[["cancer_program_file"]]
+    protein_activity_bulk_file = args[["protein_activity_bulk_file"]]
+    protein_activity_singlecell_file = args[["protein_activity_singlecell_file"]]
+    metadata_bulk_file = args[["metadata_bulk_file"]]
+    metadata_singlecell_file = args[["metadata_singlecell_file"]]
+    driver_types_file = args[["driver_types_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
     
     # load
-    protein_activity_ex = read_tsv(protein_activity_ex_file)
-    protein_activity_genexpr = read_tsv(protein_activity_genexpr_file)
-    protein_activity_scgenexpr = read_tsv(protein_activity_scgenexpr_file)
-    protein_activity_ew_model_genexpr = read_tsv(protein_activity_ew_model_genexpr_file)
-    protein_activity_ew_model_scgenexpr = read_tsv(protein_activity_ew_model_scgenexpr_file)
-    protein_activity_fc_model_genexpr = read_tsv(protein_activity_fc_model_genexpr_file)
-    protein_activity_fc_model_scgenexpr = read_tsv(protein_activity_fc_model_scgenexpr_file)
-    metadata = read_tsv(metadata_file)
-    cancer_program = read_tsv(cancer_program_file)
+    protein_activity_bulk = read_tsv(protein_activity_bulk_file)
+    protein_activity_singlecell = read_tsv(protein_activity_singlecell_file)
+    metadata_bulk = read_tsv(metadata_bulk_file)
+    metadata_singlecell = read_tsv(metadata_singlecell_file)
+    driver_types = read_tsv(driver_types_file)
     
     # prep
-    protein_activity = protein_activity_ex %>%
-        pivot_longer(-regulator, names_to="sampleID", values_to="activity_ex") %>%
-        left_join(
-            protein_activity_scgenexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_scgenexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(
-            protein_activity_genexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_genexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(
-            protein_activity_ew_model_genexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_ew_model_genexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(
-            protein_activity_ew_model_scgenexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_ew_model_scgenexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(
-            protein_activity_fc_model_genexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_fc_model_genexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(
-            protein_activity_fc_model_scgenexpr %>%
-            pivot_longer(-regulator, names_to="sampleID", values_to="activity_fc_model_scgenexpr"),
-            by = c("sampleID","regulator")
-        ) %>%
-        left_join(metadata, by="sampleID") %>%
-        drop_na(condition, activity_scgenexpr, activity_genexpr) %>%
-        mutate(
-            condition_lab = sprintf(
-                "%s (%s%s) (%s%s) | %s | %s", condition, pert_time, pert_time_units, 
-                pert_concentration, pert_concentration_units, cell_line_name, study_accession
-            )
-        ) %>%
-        
+    protein_activity_bulk = protein_activity_bulk %>%
+        left_join(metadata_bulk, by="sampleID") %>%
+        drop_na(condition, activity) %>%
         # summarize replicates
-        group_by(condition_lab, condition, pert_time, pert_time_units, 
+        group_by(dataset_id, condition, pert_time, pert_time_units, 
                  pert_concentration, pert_concentration_units, cell_line_name, study_accession,
                  PERT_ENSEMBL, PERT_GENE, regulator) %>%
         summarize(
-            activity_ex = median(activity_ex, na.rm=TRUE),
-            activity_genexpr = median(activity_genexpr, na.rm=TRUE),
-            activity_scgenexpr = median(activity_scgenexpr, na.rm=TRUE),
-            activity_ew_model_genexpr = median(activity_ew_model_genexpr, na.rm=TRUE),
-            activity_ew_model_scgenexpr = median(activity_ew_model_scgenexpr, na.rm=TRUE),
-            activity_fc_model_genexpr = median(activity_fc_model_genexpr, na.rm=TRUE),
-            activity_fc_model_scgenexpr = median(activity_fc_model_scgenexpr, na.rm=TRUE),
+            activity = median(activity, na.rm=TRUE),
+            abs_activity = abs(activity),
         ) %>%
         ungroup() %>%
-        
-        # add activity
-        group_by(condition_lab) %>%
-        mutate(
-            total_avail_sfs = sum(regulator %in% unlist(strsplit(PERT_ENSEMBL, ",")))
+        separate(dataset_id, sep="-", into=c("dataset_name","omic_type","model_type"), remove=FALSE) %>%
+        # add cancer splicing programs
+        left_join(driver_types, by=c("regulator"="ENSEMBL"))
+    
+    protein_activity_singlecell = protein_activity_singlecell %>%
+        mutate(dataset_id = gsub("Hodis2022-invitro_eng_melanoc","Hodis2022_invitro_eng_melanoc",dataset_id)) %>%
+        left_join(metadata_singlecell, by=c("sampleID"="condition")) %>%
+        drop_na(treatment, activity) %>%
+        # summarize replicates
+        group_by(dataset_id, treatment, cell_type, is_ctl, regulator) %>%
+        summarize(
+            activity = median(activity, na.rm=TRUE),
+            n_cells = sum(n_cells, na.rm=TRUE),
         ) %>%
         ungroup() %>%
-        left_join(cancer_program, by=c("regulator"="ENSEMBL"))
+        separate(dataset_id, sep="-", into=c("dataset_name","omic_type","model_type"), remove=FALSE) %>%
+        left_join(driver_types, by=c("regulator"="ENSEMBL"))
     
     # plot
-    plts = make_plots(protein_activity)
+    plts = make_plots(protein_activity_bulk, protein_activity_singlecell)
     
     # make figdata
-    figdata = make_figdata(protein_activity)
+    figdata = make_figdata(protein_activity_bulk, protein_activity_singlecell)
     
     # save
     save_plots(plts, figs_dir)

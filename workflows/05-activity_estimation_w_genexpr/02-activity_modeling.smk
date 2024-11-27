@@ -1,5 +1,4 @@
 import os
-import copy
 
 # variables
 ROOT = os.path.dirname(os.path.dirname(os.getcwd()))
@@ -30,8 +29,6 @@ REGULON_DIRS = {
     "bulkscgenexpr": os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-bulkscgenexpr"),
     "EX": os.path.join(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
 }
-
-METHODS_ACTIVITY = ["viper","correlation_pearson","correlation_spearman","gsea"]
 
 OMIC_TYPES = ["bulkgenexpr","scgenexpr","bulkscgenexpr","EX"]
 OMIC_GENEXPR_REGULONS = ["bulkgenexpr","scgenexpr","bulkscgenexpr"]

@@ -35,7 +35,6 @@ def parse_args():
 
     return args
 
-
 def main():
     args = parse_args()
     activity_file = args.activity_file
