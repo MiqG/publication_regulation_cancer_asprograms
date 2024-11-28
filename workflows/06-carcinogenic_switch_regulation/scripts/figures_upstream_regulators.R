@@ -1,13 +1,4 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquel [dot] anglada [at] crg [dot] eu
-#
-# Notes
-# --------------
-# - DDX18 is oncogenic SF
-# - in accordance, DDX18 KD does not turn the switch on (more off)
-# - KD of DDX18 in RPE1 increases its own activity
-
+Sys.setenv("VROOM_CONNECTION_SIZE" = 5000000)
 require(optparse)
 require(tidyverse)
 require(ggpubr)
@@ -58,19 +49,17 @@ PAL_GENE_TYPE = c(
 # RAW_DIR = file.path(ROOT,'data','raw')
 # PREP_DIR = file.path(ROOT,'data','prep')
 # SUPPORT_DIR = file.path(ROOT,"support")
-# RESULTS_DIR = file.path(ROOT,"results","program_regulation")
-# protein_activity_rpe1_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_rpe1-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
+# RESULTS_DIR = file.path(ROOT,"results","carcinogenic_switch_regulation")
+
+# protein_activity_rpe1_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_rpe1-bulkgenexpr-adjusted_fclayer.tsv.gz")
 # metadata_rpe1_file = file.path(PREP_DIR,"singlecell","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-conditions.tsv.gz")
-# protein_activity_k562_file = file.path(RESULTS_DIR,"files","protein_activity","ReplogleWeissman2022_K562_essential-EX_from_model_fclayer_and_scgenexpr.tsv.gz")
-# metadata_k562_file = file.path(PREP_DIR,"singlecell","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-conditions.tsv.gz")
 # gene_info_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
-# cancer_program_file = file.path(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
+# cancer_program_file = file.path(ROOT,"results","new_empirical_network",'files','PANCAN','cancer_program.tsv.gz')
 # msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
 # cosmic_genes_file = file.path(RAW_DIR,"COSMIC","cancer_gene_census.tsv")
 # figs_dir = file.path(RESULTS_DIR,"figures","upstream_regulators")
 
-# VIPER_SPLICING_DIR = "~/repositories/viper_splicing"
-# regulons_dir = file.path(VIPER_SPLICING_DIR,"data","empirical_sf_networks-EX")
+# regulons_dir = file.path(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
 # event_info_file = file.path(RAW_DIR,'VastDB','EVENT_INFO-hg38_noseqs.tsv')
 # splicing_factors_file = file.path(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
 
@@ -88,7 +77,6 @@ load_ontologies = function(msigdb_dir, cosmic_genes_file){
         "oncogenic_signatures" = read.gmt(file.path(msigdb_dir,"c6.all.v7.4.symbols.gmt")),
         "GO_BP" = read.gmt(file.path(msigdb_dir,"c5.go.bp.v7.4.symbols.gmt")),
         "GO_CC" = read.gmt(file.path(msigdb_dir,"c5.go.cc.v7.4.symbols.gmt")),
-        "CHEA" = read.gmt(file.path(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz")),
         "cosmic" = read_tsv(cosmic_genes_file) %>%
             dplyr::select("Gene Symbol","Role in Cancer") %>%
             rename(gene = `Gene Symbol`, cosmic_driver_type = `Role in Cancer`) %>%
@@ -283,25 +271,6 @@ plot_program_activity = function(cancer_program_activity){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    plts[["program_activity-diff_rpe1_vs_k562-scatter"]] = x %>%
-        ggplot(aes(x=activity_rpe1, y=activity_k562)) +
-        geom_scattermore(pixels = c(1000,1000), pointsize=8, alpha=0.5, color=PAL_DARK) +
-        theme_pubr() + 
-        geom_hline(yintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
-        geom_vline(xintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
-        stat_cor(method="pearson", size=FONT_SIZE, family=FONT_FAMILY) + 
-        facet_wrap(~cosmic_driver_type) +
-        geom_text_repel(
-            aes(label=PERT_GENE),
-            . %>% 
-            group_by(cosmic_driver_type) %>% 
-            slice_max(abs(abs(activity_rpe1) - abs(activity_k562)), n=6) %>% 
-            ungroup(),
-            size=FONT_SIZE, family=FONT_FAMILY, segment.size=0.1, max.overlaps=50
-        ) +
-        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        labs(x="RPE1 Cancer Splicing Programs Activity Difference", y="K562 Cancer Splicing Programs Activity Difference")
-    
     comparisons = list(c("COSMIC Suppressor", "COSMIC Oncogenic"))
     plts[["program_activity-diff_vs_cosmic-violin"]] = X %>%
         filter(target_in_cosmic) %>%
@@ -375,52 +344,15 @@ plot_enrichments = function(enrichments){
     plts = list()
     
     # GO BP
-    X_oncogenic = enrichments[["rpe1_oncogenic_gobp"]] %>%
-        as.data.frame() %>%
-        slice_max(NES, n=5) %>%
-        bind_rows(
-            enrichments[["rpe1_oncogenic_gobp"]] %>%
-                as.data.frame() %>%
-                slice_min(NES, n=5)
-        ) %>%
-        mutate(dataset = "oncogenic")
-    
-    X_ts = enrichments[["rpe1_tumorsuppressor_gobp"]] %>%
-        as.data.frame() %>%
-        slice_max(NES, n=5) %>%
-        bind_rows(
-            enrichments[["rpe1_tumorsuppressor_gobp"]] %>%
-                as.data.frame() %>%
-                slice_min(NES, n=5)
-        ) %>%
-        mutate(dataset = "tumor_suppressor")
-    
-    X = X_oncogenic %>% bind_rows(X_ts)
-    
-    plts[["enrichments-activity_programs-dot"]] = X %>%
-        mutate(
-            Count = str_count(core_enrichment, "/")+1, 
-            GeneRatio = Count/setSize,
-            abs_nes = abs(NES)
-        ) %>%
-        arrange(NES, Description) %>%
-        mutate(Description = factor(Description, levels=unique(Description))) %>%
-        ggscatter(x="dataset", y="Description", size="abs_nes", color="NES") +
-        scale_size(range=c(0.1,2.5)) + 
-        scale_color_continuous(
-            low=PAL_FDR_DARK, high=PAL_FDR_LIGHT, 
-            name="NES", guide=guide_colorbar(reverse=TRUE)) +
-        theme_pubr(x.text.angle = 45)
-    
-    ## activity difference
     X = enrichments[["rpe1_activity_diff_gobp"]] %>%
         as.data.frame() %>%
-        slice_max(NES, n=5) %>%
-        bind_rows(
-            enrichments[["rpe1_activity_diff_gobp"]] %>%
-                as.data.frame() %>%
-                slice_min(NES, n=5)
-        )
+        slice_max(NES, n=10)
+    
+        # bind_rows(
+        #     enrichments[["rpe1_activity_diff_gobp"]] %>%
+        #         as.data.frame() %>%
+        #         slice_min(NES, n=5)
+        # )
         
     plts[["enrichments-activity_diff-dot"]] = X %>%
         mutate(
@@ -435,44 +367,6 @@ plot_enrichments = function(enrichments){
             low=PAL_FDR_LIGHT, high=PAL_FDR_DARK, 
             name="FDR", guide=guide_colorbar(reverse=TRUE))
     
-    ## activity difference without SFs
-    X = enrichments[["rpe1_activity_diff_gobp_nosf"]] %>%
-        as.data.frame() %>%
-        slice_max(NES, n=5) %>%
-        bind_rows(
-            enrichments[["rpe1_activity_diff_gobp_nosf"]] %>%
-                as.data.frame() %>%
-                slice_min(NES, n=5)
-        )
-        
-    plts[["enrichments-activity_diff_nosf-dot"]] = X %>%
-        mutate(
-            Count = str_count(core_enrichment, "/")+1, 
-            GeneRatio=Count/setSize
-        ) %>%
-        arrange(NES, Description) %>%
-        mutate(Description = factor(Description, levels=unique(Description))) %>%
-        ggscatter(x="NES", y="Description", size="GeneRatio", color="p.adjust") +
-        scale_size(range=c(0.5,3)) + 
-        scale_color_continuous(
-            low=PAL_FDR_LIGHT, high=PAL_FDR_DARK, 
-            name="FDR", guide=guide_colorbar(reverse=TRUE))    
-    
-    X = enrichments
-    for (x in names(X)){
-        plt_name = sprintf("enrichments-activity_diff-%s-dot", x)
-        df = X[[x]] %>% as.data.frame()
-        if (nrow(df) > 0){
-            plts[[plt_name]] = df %>% 
-                slice_max(NES, n=5) %>%
-                bind_rows(
-                    df %>% 
-                    slice_min(NES, n=5)
-                ) %>%
-                plot_gsea()
-        }
-    }
-            
     return(plts)
 }
 
@@ -518,16 +412,6 @@ plot_sf_network_analysis = function(networks_sf_ex){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         guides(color="none") +
         labs(x="% Target Genes", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
-    
-    # connections between and within cancer splicing programs
-    # how many targets of either programs are of themselves or the other?
-    # plts[["sf_network_analysis-regulator_type_vs_target_type_freq-bar"]] = x %>%
-    #     filter((target_type%in%types_oi) & (regulator_type%in%types_oi)) %>%
-    #     count(target_type, regulator_type) %>%
-    #     ggbarplot(x="regulator_type", y="n", label=TRUE, lab.size=FONT_SIZE, lab.family=FONT_FAMILY,
-    #               position=position_dodge(0.9), color=NA, fill="target_type", palette=PAL_DRIVER_TYPE) +
-    #     labs(x="Regulator Splicing Program", y="N. Target SFs", fill="Target Splicing Program")
-        
     
     return(plts)
 }
@@ -598,17 +482,13 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_cosmic-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_program-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_sfornot-scatter", '.pdf', figs_dir, width=8, height=12)
-    save_plt(plts, "program_activity-diff_rpe1_vs_k562-scatter", '.pdf', figs_dir, width=8, height=8)
     save_plt(plts, "program_activity-diff_vs_cosmic-violin", '.pdf', figs_dir, width=8, height=8)
     save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=12, height=8)
     
-    save_plt(plts, "enrichments-activity_programs-dot", '.pdf', figs_dir, width=12, height=7.5)
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
-    save_plt(plts, "enrichments-activity_diff_nosf-dot", '.pdf', figs_dir, width=12.5, height=5.5)
     
     save_plt(plts, "sf_network_analysis-sf_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
     save_plt(plts, "sf_network_analysis-target_type_freq_vs_activity_diff-scatter", '.pdf', figs_dir, width=8, height=9)
-    save_plt(plts, "sf_network_analysis-regulator_type_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
     
     save_plt(plts, "ppi_network_analysis-pair_type_vs_path_length-violin", '.pdf', figs_dir, width=5, height=6)
 }
@@ -632,10 +512,16 @@ parseargs = function(){
     
     option_list = list( 
         make_option("--protein_activity_rpe1_file", type="character"),
+        make_option("--metadata_rpe1_file", type="character"),
         make_option("--cancer_program_file", type="character"),
         make_option("--gene_info_file", type="character"),
         make_option("--msigdb_dir", type="character"),
         make_option("--cosmic_genes_file", type="character"),
+        make_option("--regulons_dir", type="character"),
+        make_option("--event_info_file", type="character"),
+        make_option("--splicing_factors_file", type="character"),
+        make_option("--shortest_paths_pert_sfs_file", type="character"),
+        make_option("--shortest_paths_random_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -648,10 +534,16 @@ main = function(){
     args = parseargs()
     
     protein_activity_rpe1_file = args[["protein_activity_rpe1_file"]]
+    metadata_rpe1_file = args[["metadata_rpe1_file"]]
     cancer_program_file = args[["cancer_program_file"]]
     gene_info_file = args[["gene_info_file"]]
     msigdb_dir = args[["msigdb_dir"]]
     cosmic_genes_file = args[["cosmic_genes_file"]]
+    regulons_dir = args[["regulons_dir"]]
+    event_info_file = args[["event_info_file"]]
+    splicing_factors_file = args[["splicing_factors_file"]]
+    shortest_paths_pert_sfs_file = args[["shortest_paths_pert_sfs_file"]]
+    shortest_paths_random_file = args[["shortest_paths_random_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
@@ -660,8 +552,6 @@ main = function(){
     # load
     protein_activity_rpe1 = read_tsv(protein_activity_rpe1_file)
     metadata_rpe1 = read_tsv(metadata_rpe1_file)
-    protein_activity_k562 = read_tsv(protein_activity_k562_file)
-    metadata_k562 = read_tsv(metadata_k562_file)
     cancer_program = read_tsv(cancer_program_file)
     gene_info = read_tsv(gene_info_file)
     ontologies = load_ontologies(msigdb_dir, cosmic_genes_file)
@@ -683,16 +573,11 @@ main = function(){
         dplyr::select(`Ensembl gene ID`, PERT_GENE)
 
     protein_activity_rpe1 = protein_activity_rpe1 %>%
-        pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_rpe1")
+        pivot_longer(-regulator, names_to="PERT_ID", values_to="activity_rpe1") %>%
+        separate(PERT_ID, sep="___", into=c("study","cell_line","PERT_ENSEMBL","PERT_TYPE"), remove=FALSE)
     
-    protein_activity_k562 = protein_activity_k562 %>%
-        pivot_longer(-regulator, names_to="PERT_ENSEMBL", values_to="activity_k562")
-    
-    protein_activity = merge(
-            protein_activity_rpe1, protein_activity_k562, 
-            by=c("PERT_ENSEMBL","regulator"), all.x=TRUE, all.y=TRUE
-        ) %>%
-        filter(!if_all(c(activity_rpe1,activity_k562), is.na)) %>%
+    protein_activity = protein_activity_rpe1 %>%
+        filter(!if_all(c(activity_rpe1), is.na)) %>%
         left_join(gene_info, by=c("PERT_ENSEMBL"="Ensembl gene ID"))
     
     cancer_program_activity = cancer_program %>%
@@ -700,7 +585,7 @@ main = function(){
             protein_activity, 
             by=c("ENSEMBL"="regulator")
         ) %>%
-        pivot_longer(c(activity_rpe1, activity_k562), names_to="activity_type", values_to="activity") %>%
+        pivot_longer(c(activity_rpe1), names_to="activity_type", values_to="activity") %>%
         drop_na(activity) %>%
         group_by(PERT_ENSEMBL, PERT_GENE, activity_type, driver_type) %>%
         summarize(activity = median(activity, na.rm=TRUE)) %>%
@@ -744,35 +629,11 @@ main = function(){
     enrichments = list()
     genes = cancer_program_activity %>% 
         filter(activity_type=="activity_rpe1") %>% 
-        arrange(-Oncogenic) %>% 
-        distinct(PERT_GENE,Oncogenic) %>% 
-        deframe()
-    enrichments[["rpe1_oncogenic_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
-    enrichments[["rpe1_oncogenic_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
-    genes = cancer_program_activity %>% 
-        filter(activity_type=="activity_rpe1") %>% 
-        arrange(-`Tumor suppressor`) %>% 
-        distinct(PERT_GENE,`Tumor suppressor`) %>% 
-        deframe()
-    enrichments[["rpe1_tumorsuppressor_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
-    enrichments[["rpe1_tumorsuppressor_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
-    genes = cancer_program_activity %>% 
-        filter(activity_type=="activity_rpe1") %>% 
         arrange(-activity_diff) %>% 
         distinct(PERT_GENE,activity_diff) %>% 
         deframe()
     enrichments[["rpe1_activity_diff_gobp"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
     enrichments[["rpe1_activity_diff_reactome"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
-    enrichments[["rpe1_activity_diff_chea"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]], seed=RANDOM_SEED)
-    ## without splicing factor perturbations
-    genes = cancer_program_activity %>% 
-        filter(activity_type=="activity_rpe1" & !pert_is_sf) %>% 
-        arrange(-activity_diff) %>% 
-        distinct(PERT_GENE,activity_diff) %>% 
-        deframe()
-    enrichments[["rpe1_activity_diff_gobp_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["GO_BP"]], seed=RANDOM_SEED)
-    enrichments[["rpe1_activity_diff_reactome_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["reactome"]], seed=RANDOM_SEED)
-    enrichments[["rpe1_activity_diff_chea_nosf"]] = GSEA(geneList = genes, TERM2GENE=ontologies[["CHEA"]], seed=RANDOM_SEED)
     
     # target exon network analysis
     networks_sf_ex = networks_sf_ex %>% 

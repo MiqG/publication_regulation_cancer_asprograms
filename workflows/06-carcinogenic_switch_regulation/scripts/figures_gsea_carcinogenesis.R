@@ -1,21 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquel [dot] anglada [at] crg [dot] eu
-#
-# Notes
-# --------------
-# - MYC turns the carcinogenic splicing switch on
-# - MYC upregulates DDX18 transcription
-# - overexpression of DDX18 decreases its activity
-#
-# TODO
-# ----
-# - plot everything as fold changes w.r.t. MCF10A
-# - Check gene expression/activity changes of all splicing factors upon MYC activation that are known targets of MYC (CHEA database) --> volcano plot --> we are interested in those that both change their expression at the same time that the switch is turned on 
-#     - consider whether they are annotated as suppressor or oncogenic?
-#     - correlate their FC gene expression or activity with the activation of the switch
-#     - we are interested in those whose change in expression (and activity) correlates with the switch turning on or not upon knockdown in the perturb seq (if available)
-
 require(optparse)
 require(tidyverse)
 require(ggpubr)
