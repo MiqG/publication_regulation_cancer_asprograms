@@ -25,8 +25,7 @@ PERT_GENEXPR_FILES = {
 
 REGULON_DIR = os.path.join(ROOT,"results","activity_estimation_w_genexpr")
 REGULON_DIRS = {
-    "EX": os.path.join(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX"),
-    "bulkgenexpr": os.path.join(REGULON_DIR,"files","experimentally_derived_regulons_pruned-bulkgenexpr")
+    "EX": os.path.join(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
 }
 
 ##### RULES #####
@@ -95,16 +94,19 @@ rule figures_gsea_carcinogenesis:
         
         pertseq_activity = os.path.join(RESULTS_DIR,"figures","upstream_regulators","figdata","upstream_regulators","cancer_program_activity.tsv.gz"),
         pertseq_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz"),
+        pertseq_genexpr = os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
         
         urbanski_metadata = os.path.join(PREP_DIR,"metadata","Urbanski2022.tsv.gz"),
         urbanski_genexpr = os.path.join(PREP_DIR,'genexpr_tpm',"Urbanski2022.tsv.gz"),
         urbanski_ex = os.path.join(PREP_DIR,'event_psi',"Urbanski2022-EX.tsv.gz"),
-        urbanski_activiy = os.path.join(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz"),
+        urbanski_activity = os.path.join(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz"),
         urbanski_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks.tsv.gz"),
         
         msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
+        chea = os.path.join(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz"),
         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
-        cancer_program = os.path.join(SUPPORT_DIR,"supplementary_tables","cancer_program.tsv.gz")
+        cancer_program = os.path.join(CARCINOGENESIS_BULK_DIR,'files','PANCAN','cancer_program.tsv.gz'),
+        gene_annot = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
     output:
         directory(os.path.join(RESULTS_DIR,"figures","gsea_carcinogenesis"))
     shell:
@@ -120,14 +122,17 @@ rule figures_gsea_carcinogenesis:
                     --carcinogenesis_singlecell_metadata_file={input.carcinogenesis_singlecell_metadata} \
                     --pertseq_activity_file={input.pertseq_activity} \
                     --pertseq_hallmarks_file={input.pertseq_hallmarks} \
+                    --pertseq_genexpr_file={input.pertseq_genexpr} \
                     --urbanski_metadata_file={input.urbanski_metadata} \
                     --urbanski_genexpr_file={input.urbanski_genexpr} \
                     --urbanski_ex_file={input.urbanski_ex} \
-                    --urbanski_activiy_file={input.urbanski_activiy} \
+                    --urbanski_activity_file={input.urbanski_activity} \
                     --urbanski_hallmarks_file={input.urbanski_hallmarks} \
                     --msigdb_dir={input.msigdb_dir} \
+                    --chea_file={input.chea} \
                     --splicing_factors_file={input.splicing_factors} \
                     --cancer_program_file={input.cancer_program} \
+                    --gene_annot_file={input.gene_annot} \
                     --figs_dir={output}
         """
     

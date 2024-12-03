@@ -168,7 +168,8 @@ rule adjust_activity:
     input:
         activity = os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-{omic_regulon}.tsv.gz"),
         weights = [os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth").format(k=k, omic_regulon="{omic_regulon}", model_type="{model_type}") for k in range(K_CROSS_VALIDATION)],
-        common_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","common_regulators.tsv.gz")
+        input_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
+        output_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
     params:
         weights = ",".join([os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth").format(k=k, omic_regulon="{omic_regulon}", model_type="{model_type}") for k in range(K_CROSS_VALIDATION)]),
         model_type = "{model_type}",
@@ -180,7 +181,8 @@ rule adjust_activity:
         python {params.script_dir}/vipersp/scripts/adjust_genexpr_sf_activity.py \
                     --activity_file={input.activity} \
                     --weights_files="{params.weights}" \
-                    --common_regulators_file={input.common_regulators} \
+                    --input_regulators_file={input.input_regulators} \
+                    --output_regulators_file={input.output_regulators} \
                     --model_type={params.model_type} \
                     --output_file={output}
         """

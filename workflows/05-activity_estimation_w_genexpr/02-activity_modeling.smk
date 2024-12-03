@@ -48,7 +48,8 @@ rule all:
         expand(os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","losses.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
         expand(os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights.pth"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
         [os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth").format(k=k, omic_regulon=o, model_type=m) for o in OMIC_GENEXPR_REGULONS for m in MODEL_ARCHS for k in range(K_CROSS_VALIDATION)],
-        expand(os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","common_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
+        expand(os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
+        expand(os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
         os.path.join(RESULTS_DIR,"files","model_sf_activity","losses-merged.tsv.gz"),
         
         # make figures
@@ -98,7 +99,8 @@ rule train_model_to_adjust_sf_activity:
     output:
         losses = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","losses.tsv.gz"),
         weights = [os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth").format(k=k, omic_regulon="{omic_regulon}", model_type="{model_type}") for k in range(K_CROSS_VALIDATION)],
-        common_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","common_regulators.tsv.gz")
+        input_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
+        output_regulators = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
     params:
         model_type = "{model_type}",
         batch_size = 128,
@@ -115,6 +117,8 @@ rule train_model_to_adjust_sf_activity:
         from torch.utils.data import DataLoader, TensorDataset
         import lightning as L
         from vipersp.model import EWlayer, FClayer, LitWrapper
+        from sklearn.model_selection import KFold
+        
         L.seed_everything(1234, workers=True)
         
         # load data
@@ -130,19 +134,30 @@ rule train_model_to_adjust_sf_activity:
         num_workers = threads
         k_cross_validation = params.k_cross_validation
         
-        all_losses = []
-        for k in range(k_cross_validation):
-            # split
-            avail_samples = list(set(features.columns).intersection(labels.columns))
-            train_samples = np.random.choice(avail_samples, int(len(avail_samples)*train_split))
-            val_samples = list(set(avail_samples) - set(train_samples))
-            
+        # subset
+        ## samples
+        avail_samples = list(set(features.columns).intersection(labels.columns))
+        ## regulators
+        if model_type=="fclayer":
+            input_regulators = list(features.index)
+            output_regulators = list(labels.index)
+        elif model_type=="ewlayer":
             common_regulators = list(set(features.index).intersection(labels.index))
-
-            train_features = features.loc[common_regulators, train_samples].copy()
-            train_labels = labels.loc[common_regulators, train_samples].copy()
-            val_features = features.loc[common_regulators, val_samples].copy()
-            val_labels = labels.loc[common_regulators, val_samples].copy()
+            input_regulators = common_regulators
+            output_regulators = common_regulators
+        
+        kf = KFold(n_splits=k_cross_validation, shuffle=True, random_state=1234)
+        
+        all_losses = []
+        for k, (train_index, test_index) in enumerate(kf.split(features.T)):
+            # split
+            train_samples = np.array(avail_samples)[train_index]
+            val_samples = np.array(avail_samples)[test_index]
+            
+            train_features = features.loc[input_regulators, train_samples].copy()
+            train_labels = labels.loc[output_regulators, train_samples].copy()
+            val_features = features.loc[input_regulators, val_samples].copy()
+            val_labels = labels.loc[output_regulators, val_samples].copy()
 
             # prep dataloaders
             X_train = torch.tensor(train_features.fillna(0).T.values, dtype=torch.float32)
@@ -159,10 +174,10 @@ rule train_model_to_adjust_sf_activity:
             # train model
             criterion = nn.SmoothL1Loss()
             if model_type=="fclayer":
-                model = FClayer(input_size=len(common_regulators), output_size=len(common_regulators))
+                model = FClayer(input_size=len(input_regulators), output_size=len(output_regulators))
 
             elif model_type=="ewlayer":
-                model = EWlayer(input_size=len(common_regulators))        
+                model = EWlayer(input_size=len(input_regulators))        
 
             litwrapper = LitWrapper(model, criterion, learning_rate)
             trainer = L.Trainer(
@@ -192,7 +207,8 @@ rule train_model_to_adjust_sf_activity:
         all_losses = pd.concat(all_losses)
         all_losses.to_csv(output.losses, **SAVE_PARAMS)
         ## common regulators
-        pd.DataFrame(common_regulators).to_csv(output.common_regulators, header=None, **SAVE_PARAMS)
+        pd.DataFrame(input_regulators).to_csv(output.input_regulators, header=None, **SAVE_PARAMS)
+        pd.DataFrame(output_regulators).to_csv(output.output_regulators, header=None, **SAVE_PARAMS)
         
         print("Done!")
         

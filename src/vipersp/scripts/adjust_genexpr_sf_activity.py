@@ -27,7 +27,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--activity_file", type=str)
     parser.add_argument("--weights_files", type=str)
-    parser.add_argument("--common_regulators_file", type=str)
+    parser.add_argument("--input_regulators_file", type=str)
+    parser.add_argument("--output_regulators_file", type=str)
     parser.add_argument("--model_type", type=str)
     parser.add_argument("--output_file", type=str)
 
@@ -39,28 +40,30 @@ def main():
     args = parse_args()
     activity_file = args.activity_file
     weights_files = args.weights_files
-    common_regulators_file = args.common_regulators_file
+    input_regulators_file = args.input_regulators_file
+    output_regulators_file = args.output_regulators_file
     model_type = args.model_type
     output_file = args.output_file
 
     # load
     activity = pd.read_table(activity_file, index_col=0)
     weights = [torch.load(f) for f in weights_files.split(",")]
-    common_regulators = list(pd.read_table(common_regulators_file, header=None)[0])
+    input_regulators = list(pd.read_table(input_regulators_file, header=None)[0])
+    output_regulators = list(pd.read_table(output_regulators_file, header=None)[0])
 
     # prep data
     activity = pd.merge(
-        pd.DataFrame(index=common_regulators),
+        pd.DataFrame(index=input_regulators),
         activity,
         how="left", left_index=True, right_index=True
     )
     X = torch.tensor(activity.fillna(0).T.values, dtype=torch.float32)
 
     if model_type=="fclayer":
-        model = FClayer(input_size=len(common_regulators), output_size=len(common_regulators))
+        model = FClayer(input_size=len(input_regulators), output_size=len(output_regulators))
 
     elif model_type=="ewlayer":
-        model = EWlayer(input_size=len(common_regulators))        
+        model = EWlayer(input_size=len(input_regulators))
 
     activity_preds = []
     for k in range(len(weights)):
@@ -71,7 +74,7 @@ def main():
             Y_hat = model(X)
 
         # prep outputs
-        activity_pred = pd.DataFrame(Y_hat.detach().numpy().T, index=common_regulators, columns=activity.columns)
+        activity_pred = pd.DataFrame(Y_hat.detach().numpy().T, index=output_regulators, columns=activity.columns)
         activity_pred.index.name = "regulator"
         
         activity_preds.append(activity_pred)
