@@ -46,6 +46,20 @@ plot_losses = function(losses){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Epoch", y="Pearson Corr. Coef.")
     
+    plts[["losses-last_epoch_vs_pearson_vs_omic_regulon-box"]] = X %>%
+        filter(metric=="pearson") %>%
+        group_by(subset, omic_regulon, model_type) %>%
+        slice_max(epoch) %>%
+        ungroup() %>%
+        ggplot(aes(x=omic_regulon, y=loss, group=interaction(omic_regulon, subset))) +
+        geom_boxplot(aes(color=subset), fill=NA, outlier.shape=NA, position=position_dodge(0.9)) +
+        geom_jitter(aes(color=subset), size=0.25, fill=NA, position=position_jitterdodge(jitter.width=0.5, dodge.width=0.9)) +
+        color_palette("Paired") +
+        theme_pubr() +
+        facet_wrap(~model_type) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="Network & Adjustment", y="Pearson Corr. Coef.")
+    
     return(plts)
 }
 
@@ -86,6 +100,7 @@ save_plt = function(plts, plt_name, extension='.pdf',
 save_plots = function(plts, figs_dir){
     save_plt(plts, "losses-epoch_vs_loss-line", '.pdf', figs_dir, width=10, height=10)
     save_plt(plts, "losses-epoch_vs_pearson-line", '.pdf', figs_dir, width=10, height=10)
+    save_plt(plts, "losses-last_epoch_vs_pearson_vs_omic_regulon-box", '.pdf', figs_dir, width=7, height=5)
 }
 
 

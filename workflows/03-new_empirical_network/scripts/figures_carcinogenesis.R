@@ -47,9 +47,10 @@ plot_carcinogenesis = function(protein_activity, genexpr){
         group_by(cell_line_name, driver_type, study_accession, GENE) %>%
         summarize(activity = median(activity)) %>%
         ungroup() %>%
-        mutate(cell_line_name=factor(
-            cell_line_name, levels=FIBROBLASTS
-        ))
+        mutate(
+            cell_line_name = factor(cell_line_name, levels=FIBROBLASTS),
+            driver_type = factor(driver_type, levels=names(PAL_DRIVER_TYPE))
+        )
     
     plts[["carcinogenesis-cell_line_vs_activity-violin"]] = X %>%
         filter(cell_line_name!="BJ_PRIMARY") %>%
@@ -79,6 +80,7 @@ plot_carcinogenesis = function(protein_activity, genexpr){
             x="cell_line_name", y="activity_diff", color=PAL_DARK, numeric.x.axis=TRUE,
             size=LINE_SIZE, linetype="dashed", point.size=0.05
         ) +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
         labs(x="Cell Line", y="Protein Activity Diff.")
 
     # genexpr
@@ -186,8 +188,8 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 
 save_plots = function(plts, figs_dir){
-    save_plt(plts, "carcinogenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=6, height=6)
-    save_plt(plts, "carcinogenesis-cell_line_vs_activity_diff-line", '.pdf', figs_dir, width=6, height=6)
+    save_plt(plts, "carcinogenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=6, height=4.5)
+    save_plt(plts, "carcinogenesis-cell_line_vs_activity_diff-line", '.pdf', figs_dir, width=6, height=2.25)
     save_plt(plts, "carcinogenesis-cell_line_vs_genexpr_fc-violin", '.pdf', figs_dir, width=6, height=6)
     save_plt(plts, "carcinogenesis-cell_line_vs_activity-random-violin", '.pdf', figs_dir, width=6, height=6)
 }

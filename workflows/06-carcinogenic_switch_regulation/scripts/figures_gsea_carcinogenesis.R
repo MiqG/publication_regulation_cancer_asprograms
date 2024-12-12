@@ -20,16 +20,16 @@ LABS_SC = c('WT','C','CB','CBT_228','CBT3','CBTA','CBTP','CBTP3','CBTPA')
 RANDOM_SEED = 1234
 
 LABS_HALLMARKS = c(
-    "HALLMARK_UV_RESPONSE_DN", 
-    "HALLMARK_COMPLEMENT", 
-    "HALLMARK_INFLAMMATORY_RESPONSE", 
-    "HALLMARK_P53_PATHWAY", 
-    "HALLMARK_IL6_JAK_STAT3_SIGNALING", 
-    "HALLMARK_E2F_TARGETS", 
-    "HALLMARK_SPERMATOGENESIS", 
-    "HALLMARK_G2M_CHECKPOINT", 
-    "HALLMARK_MYC_TARGETS_V1", 
-    "HALLMARK_MYC_TARGETS_V2"
+    'HALLMARK_INFLAMMATORY_RESPONSE',
+    'HALLMARK_COMPLEMENT',
+    'HALLMARK_IL6_JAK_STAT3_SIGNALING',
+    'HALLMARK_P53_PATHWAY',
+    'HALLMARK_UV_RESPONSE_DN',
+    'HALLMARK_SPERMATOGENESIS',
+    'HALLMARK_E2F_TARGETS',
+    'HALLMARK_G2M_CHECKPOINT',
+    'HALLMARK_MYC_TARGETS_V1',
+    'HALLMARK_MYC_TARGETS_V2'
 )
 
 # formatting
@@ -147,6 +147,7 @@ plot_corrs = function(corrs, experiments, ontologies){
     
     plts[["corrs-pertseq-bar"]] = X %>%
         filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
+        mutate(Description = factor(Description, levels=LABS_HALLMARKS)) %>%
         ggbarplot(x="Description", y="correlation_diff_activity", color=NA, fill="dataset", 
                   palette=PAL_DATASETS, position=position_dodge(0.9)) +
         labs(x="Top Correlating Hallmark", y="Pearson Correlation", fill="") +
@@ -172,7 +173,7 @@ plot_corrs = function(corrs, experiments, ontologies){
     # ranges of enrichments in perturb seq for selected pathways
     plts[["corrs-term_vs_nes-pertseq-violin"]] = experiments %>%
         filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
-        mutate(Description = factor(Description, levels=levels(x[["Description"]]))) %>%
+        mutate(Description = factor(Description, levels=LABS_HALLMARKS)) %>%
         distinct(Description, PERT_GENE, NES, enrichmentScore, dataset) %>%
         drop_na() %>%
         ggviolin(x="Description", y="NES", trim=TRUE, color=NA, fill="dataset", palette=PAL_DATASETS) +
@@ -230,7 +231,7 @@ plot_urbanski = function(urbanski_activity, urbanski_hallmarks){
     plts[["urbanski-time_vs_hallmarks-box"]] = X %>%
         filter(Description %in% pathways_oi) %>%
         mutate(
-            Description = factor(Description, levels=pathways_oi)
+            Description = factor(Description, levels=rev(pathways_oi))
         ) %>%
         ggstripchart(x="pert_time", y="NES", color="condition", size=1, position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
         geom_boxplot(aes(color=condition), fill=NA, position=position_dodge(0.9)) +
@@ -248,7 +249,7 @@ plot_urbanski = function(urbanski_activity, urbanski_hallmarks){
         left_join(ctls, by=c("Description","pert_time")) %>%
         mutate(
             nes_diff = NES - ctl_nes,
-            Description = factor(Description, levels=pathways_oi) 
+            Description = factor(Description, levels=rev(pathways_oi)) 
         ) %>%
         ggstripchart(x="pert_time", y="nes_diff", color="condition", size=1, position=position_jitterdodge(0.2, dodge.width=0.9), palette="Dark2") +
         geom_boxplot(aes(color=condition), fill=NA, position=position_dodge(0.9)) +
@@ -350,7 +351,7 @@ plot_myc = function(enrichments, gene_corrs, activity_corrs, pertseq_activity){
         labs(x="Ranking", y="Pearson Corr. Coef.", fill="Gene Type", color="Gene Type")
     
     plts[["myc-urbanski_correlation_vs_pertseq_activity_diff-scatter"]] = X %>%
-        ggplot(aes(x=correlation, y=activity_diff)) +
+        ggplot(aes(x=activity_diff, y=correlation)) +
         geom_scattermore(aes(color=gene_type), pixels = c(1000,1000), pointsize=8, alpha=0.5) +
         color_palette(PAL_GENE_TYPE) +
         geom_hline(yintercept=0, linetype="dashed", color="black") +
@@ -370,7 +371,8 @@ plot_myc = function(enrichments, gene_corrs, activity_corrs, pertseq_activity){
         ) +
         theme_pubr() +
         theme(aspect.ratio=1) +
-        labs(x="Pearson Corr. Coef. (Urbanski2020)", y="Protein Activity Norm. Diff. RPE1 (Replogle2020)")
+        labs(x="Protein Activity Norm. Diff. RPE1 (Replogle2020)",
+             y="Pearson Corr. Coef. (Urbanski2020)")
     
     return(plts)
 }
@@ -411,7 +413,7 @@ save_plt = function(plts, plt_name, extension='.pdf',
 }
 
 save_plots = function(plts, figs_dir){
-    save_plt(plts, "corrs-nes_vs_activity_diff-violin", '.pdf', figs_dir, width=4, height=4)
+    save_plt(plts, "corrs-nes_vs_activity_diff-violin", '.pdf', figs_dir, width=3, height=4)
     save_plt(plts, "corrs-bulk_vs_singlecell-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-pertseq-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-hallmark_sets_overlaps-upset", '.pdf', figs_dir, width=14, height=10)
@@ -420,13 +422,13 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "urbanski-time_vs_activity_norm-box", '.pdf', figs_dir, width=6, height=6)
     save_plt(plts, "urbanski-time_vs_activity_norm_diff-line", '.pdf', figs_dir, width=5, height=4)
     save_plt(plts, "urbanski-time_vs_hallmarks-box", '.pdf', figs_dir, width=12, height=12)
-    save_plt(plts, "urbanski-time_vs_hallmarks_norm-box", '.pdf', figs_dir, width=12, height=12)
+    save_plt(plts, "urbanski-time_vs_hallmarks_norm-box", '.pdf', figs_dir, width=8, height=9)
     
     save_plt(plts, "myc-enrichments-go_bp-dot", '.pdf', figs_dir, width=10, height=5)
     save_plt(plts, "myc-gene_type_vs_genexpr_pearson-violin", '.pdf', figs_dir, width=5, height=4)
     save_plt(plts, "myc-consensus_ranking_vs_genexpr_pearson-scatter", '.pdf', figs_dir, width=5, height=7)
-    save_plt(plts, "myc-gene_type_vs_activity_pearson-bar", '.pdf', figs_dir, width=7, height=6)
-    save_plt(plts, "myc-urbanski_correlation_vs_pertseq_activity_diff-scatter", '.pdf', figs_dir, width=6, height=7)
+    save_plt(plts, "myc-gene_type_vs_activity_pearson-bar", '.pdf', figs_dir, width=9s, height=5)
+    save_plt(plts, "myc-urbanski_correlation_vs_pertseq_activity_diff-scatter", '.pdf', figs_dir, width=4, height=6)
 }
 
 

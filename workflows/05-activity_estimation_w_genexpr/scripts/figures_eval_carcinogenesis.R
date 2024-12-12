@@ -213,8 +213,8 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "eval_bulk-cell_line_vs_activity_diff-adjusted-line", '.pdf', figs_dir, width=6, height=6)
     
     save_plt(plts, "eval_singlecell-stage_vs_activity_diff-raw-line", '.pdf', figs_dir, width=7, height=6)
-    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-adjusted-line", '.pdf', figs_dir, width=7, height=6)
-    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-best-line", '.pdf', figs_dir, width=7, height=6)
+    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-adjusted-line", '.pdf', figs_dir, width=7, height=4.5)
+    save_plt(plts, "eval_singlecell-stage_vs_activity_diff-best-line", '.pdf', figs_dir, width=7, height=4.5)
 }
 
 

@@ -115,6 +115,7 @@ plot_cancer_programs = function(protein_activity, genexpr){
     plts[["cancer_programs-tissue_vs_differentiation-violin"]] = genexpr %>%
         distinct(time, tissue, sampleID) %>%
         mutate(time = log10(time+1)) %>%
+        mutate(tissue = factor(tissue, levels=TISSUES)) %>%
         ggviolin(x="tissue", y="time", fill="tissue", color=NA, trim=TRUE) +
         geom_text(
                 aes(y=1, label=label),
@@ -132,6 +133,7 @@ plot_cancer_programs = function(protein_activity, genexpr){
         mutate(time = as.numeric(cut(log10(time+1), breaks=10))) %>%
         ungroup() %>%
         count(tissue, time) %>%
+        mutate(tissue = factor(tissue, levels=TISSUES)) %>%
         ggbarplot(x="time", y="n", fill="tissue", color=NA) +
         fill_palette(get_palette("Dark2", length(TISSUES))) +
         labs(x="log10(Days Post Conception + 1) Binned", y="Protein Activity Diff.", fill="Tissue")
@@ -148,11 +150,13 @@ plot_cancer_programs = function(protein_activity, genexpr){
         group_by(tissue, study_accession, time) %>%
         summarize(activity_diff = sum(activity)) %>%
         ungroup() %>%
+        mutate(tissue = factor(tissue, levels=TISSUES)) %>%
         ggline(
             x="time", y="activity_diff", color="tissue", numeric.x.axis=TRUE,
             size=LINE_SIZE, linetype="dashed", point.size=0.05
         ) +
         color_palette(get_palette("Dark2", length(TISSUES))) +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
         stat_cor(aes(color=tissue), method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
         stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
         labs(x="log10(Days Post Conception + 1) Binned", y="Protein Activity Diff.", color="Tissue")
@@ -200,9 +204,9 @@ save_plt = function(plts, plt_name, extension='.pdf',
 save_plots = function(plts, figs_dir){
     
     # activity
-    save_plt(plts, "cancer_programs-tissue_vs_differentiation-violin", '.pdf', figs_dir, width=5, height=8)
-    save_plt(plts, "cancer_programs-differentiation_vs_n_samples-bar", '.pdf', figs_dir, width=5, height=8)
-    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-line", '.pdf', figs_dir, width=5, height=8)
+    save_plt(plts, "cancer_programs-tissue_vs_differentiation-violin",'.pdf', figs_dir, width=4, height=5)
+    save_plt(plts, "cancer_programs-differentiation_vs_n_samples-bar",'.pdf', figs_dir, width=8, height=4.5)
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-line",'.pdf', figs_dir, width=8, height=6)
     
 }
 

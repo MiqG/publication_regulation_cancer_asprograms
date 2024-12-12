@@ -70,13 +70,13 @@ plot_driver_selection = function(driver_activity){
         mutate(GENE = factor(GENE, levels=sf_order)) %>%
         ggbarplot(x="GENE", y="n", fill="only_new_network", color=NA) +
         geom_text(
-            aes(label=GENE),
+            aes(label=GENE, color=only_new_network),
             sfs_oi %>% filter(driver_type=="Oncogenic"),
             size=FONT_SIZE, family=FONT_FAMILY, 
             angle=-45, hjust=1, vjust=1, nudge_y=0.25
         ) +
         geom_text(
-            aes(label=GENE),
+            aes(label=GENE, color=only_new_network),
             sfs_oi %>% filter(driver_type=="Tumor suppressor"),
             size=FONT_SIZE, family=FONT_FAMILY, 
             angle=45, hjust=0, vjust=0.5, nudge_y=0.25
@@ -98,10 +98,11 @@ plot_driver_selection = function(driver_activity){
             size=FONT_SIZE, family=FONT_FAMILY
         ) +
         fill_palette("Dark2") +
+        color_palette("Dark2") +
         theme_pubr(x.text.angle=70) +
         facet_wrap(~driver_type, ncol=1) +
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
-        labs(x="Splicing Factor", y="Count", fill="SF from new Version")
+        labs(x="Splicing Factor", y="Count", fill="SF from new Version", color="SF from new Version")
     
     return(plts)
 }

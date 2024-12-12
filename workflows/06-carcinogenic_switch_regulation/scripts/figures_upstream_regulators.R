@@ -303,7 +303,7 @@ plot_program_activity = function(cancer_program_activity){
         ggviolin(x="gene_type", y="activity_diff", fill="gene_type", palette=PAL_GENE_TYPE, color=NA, trim=TRUE) +
         geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black") +
         geom_text(
-            aes(y = -4.5, label=label), 
+            aes(y = -2.25, label=label), 
             . %>% 
             count(activity_type, gene_type) %>% 
             mutate(label=paste0("n=",n)),
@@ -407,6 +407,7 @@ plot_sf_network_analysis = function(networks_sf_ex){
         drop_na(perc, activity_diff) %>%
         ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="target_type") +
         color_palette(PAL_GENE_TYPE) +
+        fill_palette(PAL_GENE_TYPE) +
         stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
         facet_wrap(~target_type, scales="free") +
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
@@ -422,7 +423,8 @@ plot_ppi_network_analysis = function(shortest_paths_pert_sfs){
     
     X = shortest_paths_pert_sfs %>%
         filter(source!=target) %>%
-        drop_na()
+        drop_na() %>%
+        mutate(pair_type = factor(pair_type, levels=c("Both Weak","Mixed","Both Strong")))
     
     comparisons = list(c("Both Weak", "Both Strong"),c("Mixed", "Both Strong"),c("Mixed","Both Weak"))
     plts[["ppi_network_analysis-pair_type_vs_path_length-violin"]] = X %>%
@@ -434,6 +436,7 @@ plot_ppi_network_analysis = function(shortest_paths_pert_sfs){
             . %>% count(pair_type) %>% mutate(label=sprintf("n=%s",n)),
             size=FONT_SIZE, family=FONT_FAMILY
         ) +
+        coord_flip() +
         labs(x="SF Pair", y="STRINGDB Shortest Path Length")
     
     return(plts)
@@ -478,19 +481,19 @@ save_plt = function(plts, plt_name, extension='.pdf',
 save_plots = function(plts, figs_dir){
     save_plt(plts, "program_activity-diff_vs_pert_efficiency-scatter", '.pdf', figs_dir, width=5, height=5)
     save_plt(plts, "program_activity-ts_vs_onco_by_cell_line-scatter", '.pdf', figs_dir, width=6, height=4)
-    save_plt(plts, "program_activity-diff_ranking_overview-scatter", '.pdf', figs_dir, width=8, height=6)
+    save_plt(plts, "program_activity-diff_ranking_overview-scatter", '.pdf', figs_dir, width=5, height=6)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_cosmic-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_program-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_sfornot-scatter", '.pdf', figs_dir, width=8, height=12)
     save_plt(plts, "program_activity-diff_vs_cosmic-violin", '.pdf', figs_dir, width=8, height=8)
-    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=12, height=8)
+    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=10, height=7)
     
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
     
     save_plt(plts, "sf_network_analysis-sf_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
     save_plt(plts, "sf_network_analysis-target_type_freq_vs_activity_diff-scatter", '.pdf', figs_dir, width=8, height=9)
     
-    save_plt(plts, "ppi_network_analysis-pair_type_vs_path_length-violin", '.pdf', figs_dir, width=5, height=6)
+    save_plt(plts, "ppi_network_analysis-pair_type_vs_path_length-violin", '.pdf', figs_dir, width=6.5, height=4)
 }
 
 
