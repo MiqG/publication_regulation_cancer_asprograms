@@ -32,6 +32,19 @@ LABS_HALLMARKS = c(
     'HALLMARK_MYC_TARGETS_V2'
 )
 
+TISSUES = c(
+    'Heart',
+    'Forebrain',
+    'Hindbrain',
+    'Liver',
+    'Kidney',
+    'Ovary',
+    'Testis',
+    'Brain',
+    # 'KidneyTestis',
+    'Cerebellum'
+)
+
 # formatting
 LINE_SIZE = 0.25
 
@@ -91,6 +104,9 @@ PAL_DATASETS = c(
 # urbanski_ex_file = file.path(PREP_DIR,'event_psi',"Urbanski2022-EX.tsv.gz")
 # urbanski_activity_file = file.path(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz")
 # urbanski_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks.tsv.gz")
+
+# cardoso_metadata_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","CardosoMoreira2020.tsv.gz")
+# cardoso_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","CardosoMoreira2020-hallmarks.tsv.gz")
 
 # msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
 # chea_file = file.path(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz")
@@ -377,19 +393,71 @@ plot_myc = function(enrichments, gene_corrs, activity_corrs, pertseq_activity){
     return(plts)
 }
 
+plot_cardoso = function(cardoso_hallmarks){
+    plts = list()
+    
+    X = cardoso_hallmarks %>%
+        drop_na(time_norm, Description) %>%
+        filter(Description%in%LABS_HALLMARKS) %>%
+        group_by(tissue, Description) %>%
+        mutate(time = as.numeric(cut(log10(time_norm+1), breaks=10))) %>%
+        ungroup() %>%
+        group_by(tissue, time, Description) %>%
+        summarize(NES = median(NES)) %>%
+        ungroup() %>%
+        mutate(
+            tissue = factor(tissue, levels=TISSUES),
+            Description = factor(Description, levels=rev(LABS_HALLMARKS))
+        )
+    
+    plts[["cardoso-differentiation_vs_hallmarks-line"]] = X  %>%
+        ggline(
+            x="time", y="NES", color="tissue", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="dashed", point.size=0.01
+        ) +
+        color_palette(get_palette("Dark2", length(TISSUES))) +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
+        stat_cor(aes(color=tissue), method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
+        facet_wrap(~Description) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="log10(Days Post Conception + 1) Binned", y="Median NES", color="Tissue")
+    
+    hallmarks_oi = c(
+        'HALLMARK_MYC_TARGETS_V1',
+        'HALLMARK_MYC_TARGETS_V2'
+    )
+    plts[["cardoso-differentiation_vs_hallmarks-myc_only-line"]] = X %>%
+        filter(Description %in% hallmarks_oi) %>%
+        ggscatter(
+            x="time", y="NES", color="Description", size=0.1, alpha=0.5, position=position_jitter(0.1)
+        ) +
+        geom_smooth(aes(color=Description), linewidth=LINE_SIZE, linetype="dashed", fill="lightgrey") +
+        color_palette("Dark2") +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
+        facet_wrap(~Description, nrow=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        scale_x_continuous(breaks = unique(X[["time"]])) +
+        labs(x="log10(Days Post Conception + 1) Binned", y="Median NES", color="Tissue")
+    
+    return(plts)
+}
+
 make_plots = function(corrs, experiments, ontologies, urbanski_activity, urbanski_hallmarks, 
-                      enrichments, gene_corrs, activity_corrs, pertseq_activity){
+                      enrichments, gene_corrs, activity_corrs, pertseq_activity, cardoso_hallmarks){
     plts = list(
         plot_corrs(corrs, experiments, ontologies),
         plot_urbanski(urbanski_activity, urbanski_hallmarks),
-        plot_myc(enrichments, gene_corrs, activity_corrs, pertseq_activity)
+        plot_myc(enrichments, gene_corrs, activity_corrs, pertseq_activity),
+        plot_cardoso(cardoso_hallmarks)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 make_figdata = function(corrs, experiments, ontologies, urbanski_activity, urbanski_hallmarks, 
-                        enrichments, gene_corrs, activity_corrs, pertseq_activity){
+                        enrichments, gene_corrs, activity_corrs, pertseq_activity, cardoso_hallmarks){
     figdata = list(
         "gsea_carcinogenesis" = list(
             "correlation_analysis" = corrs
@@ -427,8 +495,11 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "myc-enrichments-go_bp-dot", '.pdf', figs_dir, width=10, height=5)
     save_plt(plts, "myc-gene_type_vs_genexpr_pearson-violin", '.pdf', figs_dir, width=5, height=4)
     save_plt(plts, "myc-consensus_ranking_vs_genexpr_pearson-scatter", '.pdf', figs_dir, width=5, height=7)
-    save_plt(plts, "myc-gene_type_vs_activity_pearson-bar", '.pdf', figs_dir, width=9s, height=5)
+    save_plt(plts, "myc-gene_type_vs_activity_pearson-bar", '.pdf', figs_dir, width=9, height=5)
     save_plt(plts, "myc-urbanski_correlation_vs_pertseq_activity_diff-scatter", '.pdf', figs_dir, width=4, height=6)
+    
+    save_plt(plts, "cardoso-differentiation_vs_hallmarks-line", '.pdf', figs_dir, width=15, height=15)
+    save_plt(plts, "cardoso-differentiation_vs_hallmarks-myc_only-line", '.pdf', figs_dir, width=11, height=6)
 }
 
 
@@ -533,6 +604,9 @@ main = function(){
     urbanski_ex = read_tsv(urbanski_ex_file)
     urbanski_activity = read_tsv(urbanski_activity_file)     
     urbanski_hallmarks = read_tsv(urbanski_hallmarks_file)
+    
+    cardoso_metadata = read_tsv(cardoso_metadata_file)
+    cardoso_hallmarks = read_tsv(cardoso_hallmarks_file)
     
     # prep: combine activity and hallmarks
     ## bulk carcinogenesis
@@ -955,13 +1029,64 @@ main = function(){
             )
         )
     
+    # add time to CardosoMoreira2020
+    cardoso_metadata = cardoso_metadata %>% 
+        distinct(study_accession, sampleID, sample_title) %>%
+        separate(
+            sample_title, 
+            c("code","organism","tissue","time","sex"), 
+            sep="\\."
+        ) %>%
+        mutate(
+            # fix carnegie stages
+            time = case_when(
+                time=="CS13" ~ "32dpc",
+                time=="CS14" ~ "33dpc",
+                time=="CS16" ~ "39dpc",
+                time=="CS17" ~ "41dpc",
+                time=="CS18" ~ "44dpc",
+                time=="CS19" ~ "46dpc",
+                time=="CS20" ~ "49dpc",
+                time=="CS21" ~ "51dpc",
+                time=="CS22" ~ "53dpc",
+                time=="CS23" ~ "56dpc",
+                TRUE ~ time
+            ),
+            time_units = case_when(
+                str_detect(time, "dpc") ~ "dpc", # days post conception
+                str_detect(time, "w") ~ "w", # weeks post conception
+                str_detect(time, "dpb") ~ "dpb", # days post birth
+                str_detect(time, "wpb") ~ "wpb", # weeks post birth
+                str_detect(time, "mpb") ~ "mpb", # months post birth
+                str_detect(time, "ypb") ~ "ypb", # years post birth
+            )
+        ) %>%
+        # normalized time to days post conception
+        rowwise() %>% 
+        mutate(
+            time_norm = as.numeric(gsub(time_units,"",time)),
+            time_norm = case_when(
+                time_units=="dpc" ~ time_norm,
+                time_units=="w" ~ time_norm*7,
+                time_units=="dpb" ~ (9*30)+time_norm,
+                time_units=="wpb" ~ (9*30)+7*time_norm,
+                time_units=="mpb" ~ (9*30)+30*time_norm,
+                time_units=="ypb" ~ (9*30)+365*time_norm
+            )
+        ) %>%
+        ungroup() %>%
+        filter(tissue %in% TISSUES)
+    
+    cardoso_hallmarks = cardoso_hallmarks %>%
+        left_join(cardoso_metadata, by="sampleID")
+    
     # plot
     plts = make_plots(corrs, experiments, ontologies, urbanski_activity, urbanski_hallmarks, 
-                      enrichments, gene_corrs, activity_corrs, pertseq_activity)
+                      enrichments, gene_corrs, activity_corrs, pertseq_activity, cardoso_hallmarks)
     
     # make figdata
     figdata = make_figdata(corrs, experiments, ontologies, urbanski_activity, urbanski_hallmarks, 
-                           enrichments, gene_corrs, activity_corrs, pertseq_activity)
+                           enrichments, gene_corrs, activity_corrs, pertseq_activity, cardoso_hallmarks)
     
     # save
     save_plots(plts, figs_dir)

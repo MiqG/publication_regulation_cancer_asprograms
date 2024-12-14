@@ -177,7 +177,7 @@ make_plots = function(protein_activity, genexpr){
 
 make_figdata = function(protein_activity, genexpr){
     figdata = list(
-        "validation_drug_target_activity" = list(
+        "differentiation" = list(
             "genexpr" = genexpr,
             "protein_activity" = protein_activity
         )
@@ -356,11 +356,11 @@ main = function(){
     plts = make_plots(protein_activity, genexpr)
 
     # make figdata
-    #figdata = make_figdata(protein_activity, genexpr)
+    figdata = make_figdata(protein_activity, genexpr)
     
     # save
     save_plots(plts, figs_dir)
-    #save_figdata(figdata, figs_dir)
+    save_figdata(figdata, figs_dir)
 }
 
 ##### SCRIPT #####

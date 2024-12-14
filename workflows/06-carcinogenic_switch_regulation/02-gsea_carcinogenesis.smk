@@ -20,7 +20,8 @@ PERT_GENEXPR_FILES = {
     "ReplogleWeissman2022_rpe1": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
     "Urbanski2022": os.path.join(PREP_DIR,"signatures","Urbanski2022-genexpr_tpm.tsv.gz"),
     "Hodis2022-invitro_eng_melanoc": os.path.join(CARCINOGENESIS_SC_DIR,"files","signatures","Hodis2022-invitro_eng_melanoc-genexpr.tsv.gz"),
-    "tumorigenesis-genexpr": os.path.join(CARCINOGENESIS_BULK_DIR,"files","signatures","tumorigenesis-genexpr.tsv.gz")
+    "tumorigenesis-genexpr": os.path.join(CARCINOGENESIS_BULK_DIR,"files","signatures","tumorigenesis-genexpr.tsv.gz"),
+    "CardosoMoreira2020": os.path.join(ROOT,"results","sf_programs_in_differentiation","files","signatures","CardosoMoreira2020-genexpr.tsv.gz")
 }
 
 REGULON_DIR = os.path.join(ROOT,"results","activity_estimation_w_genexpr")

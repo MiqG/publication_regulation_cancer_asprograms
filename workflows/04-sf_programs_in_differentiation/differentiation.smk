@@ -22,15 +22,26 @@ SPLICING_FILES = {
     "CardosoMoreira2020": os.path.join(DATASET_DIR,'event_psi','CardosoMoreira2020-EX.tsv.gz')
 }
 
+GENEXPR_FILES = {
+    "ipsc_differentiation": os.path.join(PREP_DIR,'genexpr_tpm','ipsc_differentiation.tsv.gz'),
+    "CardosoMoreira2020": os.path.join(DATASET_DIR,'genexpr_tpm','CardosoMoreira2020.tsv.gz')
+}
+
+DATA_FILES = {
+    "EX": SPLICING_FILES,
+    "genexpr": GENEXPR_FILES
+}
+
 # parameters
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 DATASETS = ["ipsc_differentiation","CardosoMoreira2020"]
+OMIC_TYPES = ["EX","genexpr"]
 
 ##### RULES #####
 rule all:
     input:
         # signatures
-        expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-EX.tsv.gz"), dataset=DATASETS),
+        expand(os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz"), dataset=DATASETS, omic_type=OMIC_TYPES),
 
         # protein activities
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX.tsv.gz"), dataset=DATASETS),
@@ -43,9 +54,9 @@ rule all:
 rule compute_signatures:
     input:
         metadata = lambda wildcards: METADATA_FILES[wildcards.dataset],
-        splicing = lambda wildcards: SPLICING_FILES[wildcards.dataset],
+        splicing = lambda wildcards: DATA_FILES[wildcards.omic_type][wildcards.dataset],
     output:
-        signatures = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-EX.tsv.gz")
+        signatures = os.path.join(RESULTS_DIR,"files","signatures","{dataset}-{omic_type}.tsv.gz")
     params:
         dataset = "{dataset}"
     run:
