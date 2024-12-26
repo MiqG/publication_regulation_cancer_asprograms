@@ -7,10 +7,12 @@ require(scattermore)
 require(extrafont)
 require(ggrepel)
 require(clusterProfiler)
-require(scattermore)
+require(ggraph)
+require(tidygraph)
 
 # variables
 COSMIC_DRIVER_TYPES = c(
+    "Not in COSMIC",
     "COSMIC Suppressor",
     "COSMIC Oncogenic",
     "COSMIC Dual"
@@ -93,7 +95,6 @@ load_ontologies = function(msigdb_dir, cosmic_genes_file){
     return(ontologies)
 }
 
-
 plot_program_activity = function(cancer_program_activity){
     plts = list()
     
@@ -135,7 +136,6 @@ plot_program_activity = function(cancer_program_activity){
             size=FONT_SIZE, family=FONT_FAMILY
         ) +
         theme_pubr() + 
-        geom_hline(yintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
         geom_vline(xintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
         stat_cor(method="pearson", size=FONT_SIZE, family=FONT_FAMILY) + 
         facet_wrap(~activity_type) +
@@ -271,10 +271,12 @@ plot_program_activity = function(cancer_program_activity){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    comparisons = list(c("COSMIC Suppressor", "COSMIC Oncogenic"))
+    comparisons = list(c("Not in COSMIC", "COSMIC Suppressor"), c("Not in COSMIC", "COSMIC Oncogenic"))
     plts[["program_activity-diff_vs_cosmic-violin"]] = X %>%
-        filter(target_in_cosmic) %>%
-        mutate(cosmic_driver_type = factor(cosmic_driver_type, levels=COSMIC_DRIVER_TYPES)) %>%
+        mutate(
+            cosmic_driver_type = replace_na(cosmic_driver_type, "Not in COSMIC"),
+            cosmic_driver_type = factor(cosmic_driver_type, levels=COSMIC_DRIVER_TYPES)
+        ) %>%
         ggviolin(x="cosmic_driver_type", y="activity_diff", fill="cosmic_driver_type", palette="Paired", color=NA, trim=TRUE) +
         geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
         geom_text(
@@ -309,16 +311,15 @@ plot_program_activity = function(cancer_program_activity){
             mutate(label=paste0("n=",n)),
             position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
         ) +
-        stat_compare_means(comparisons=comparisons, method="wilcox.test", size=FONT_SIZE, family=FONT_FAMILY) +
+        #stat_compare_means(comparisons=comparisons, method="wilcox.test", size=FONT_SIZE, family=FONT_FAMILY) +
         theme_pubr(x.text.angle = 70) +
         facet_wrap(~activity_type, ncol=2) +
-        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         guides(fill="none") +
-        labs(x="Cancer Splicing Program", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")    
+        labs(x="Cancer Splicing Program", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
     return(plts)
 }
-
 
 plot_gsea = function(df){
         
@@ -370,7 +371,7 @@ plot_enrichments = function(enrichments){
     return(plts)
 }
 
-plot_sf_network_analysis = function(networks_sf_ex){
+plot_sf_network_analysis = function(networks_sf_ex, splicing_factors, cancer_program){
     plts = list()
     
     X = networks_sf_ex
@@ -400,31 +401,103 @@ plot_sf_network_analysis = function(networks_sf_ex){
         fill_palette(PAL_GENE_TYPE) +
         labs(x="Splicing Factor", y="% Target Genes")
     
-    
     # correlation KD switch and oncogenic/suppressor %?
-    plts[["sf_network_analysis-target_type_freq_vs_activity_diff-scatter"]] = x %>%
+    plts[["sf_network_analysis-target_type_freq_vs_activity_diff-non_driver-scatter"]] = x %>%
+        filter(regulator_type=="Non-driver SF") %>%
         mutate(target_type = factor(target_type, levels=names(PAL_GENE_TYPE))) %>%
         drop_na(perc, activity_diff) %>%
-        ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="target_type") +
+        ggscatter(x="perc", y="activity_diff", size=1, alpha=0.5, color="regulator_type") +
         color_palette(PAL_GENE_TYPE) +
         fill_palette(PAL_GENE_TYPE) +
-        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
+        stat_cor(method="spearman987", size=FONT_SIZE, family=FONT_FAMILY) +
         facet_wrap(~target_type, scales="free") +
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         guides(color="none") +
         labs(x="% Target Genes", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
+    # how many of the possible targets are regulated by another SF?
+    total_sfs = splicing_factors %>%
+        left_join(cancer_program, by=c("ENSEMBL","GENE")) %>%
+        mutate(
+            sf_type = case_when(
+                is.na(driver_type) ~ "Non-driver SF",
+                driver_type=="Oncogenic" ~ "Oncogenic",
+                driver_type=="Tumor suppressor" ~ "Tumor suppressor"
+            )
+        ) %>%
+        count(sf_type, name="n_total")
+    
+    edges = X %>% 
+        distinct(GENE, regulator_type, target_type) %>%
+        filter(target_type!="Not SF") %>%
+        count(regulator_type, target_type) %>%
+        left_join(total_sfs, by=c("target_type"="sf_type")) %>%
+        mutate(
+            perc = n / n_total,
+            edge_label = sprintf("%s (n=%s)", round(perc, 2), n),
+            regulator_class = regulator_type,
+            node_label = sprintf("%s (n=%s)", target_type, n_total)
+        )
+    
+    nodes = edges %>%
+        distinct(node_label) %>%
+        mutate(regulator_class = gsub(" \\(.*", "", node_label)) %>%
+        distinct(regulator_class, node_label)
+    
+    g = tbl_graph(nodes=nodes, edges=edges, directed=TRUE)
+        
+    plts[["sf_network_analysis-regulator_type_perc-graph"]] = g %>%
+        ggraph() +
+        geom_edge_arc(
+            arrow=arrow(length=unit(3, 'mm')), 
+            aes(label=edge_label, width=perc, color=regulator_class),
+            start_cap=circle(3, 'mm'),
+            end_cap=circle(3, 'mm'),
+            strength=0.2,
+            alpha=0.5,
+            label_size=FONT_SIZE, family=FONT_FAMILY
+        ) + 
+        geom_edge_loop(
+            aes(label=edge_label, width=perc, color=regulator_class), 
+            arrow=arrow(length=unit(3, 'mm')),
+            alpha=0.5,
+            label_size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        geom_node_text(
+            aes(label=node_label, color=regulator_class),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        color_palette(PAL_GENE_TYPE) +
+        scale_edge_color_manual(values=PAL_GENE_TYPE) +
+        scale_edge_width_continuous(range = c(0.2, 1)) +
+        theme_void() +
+        theme(aspect.ratio=1)
+    
     return(plts)
 }
 
-
-plot_ppi_network_analysis = function(shortest_paths_pert_sfs){
+plot_ppi_network_analysis = function(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program){
     plts = list()
     
     X = shortest_paths_pert_sfs %>%
         filter(source!=target) %>%
         drop_na() %>%
-        mutate(pair_type = factor(pair_type, levels=c("Both Weak","Mixed","Both Strong")))
+        mutate(pair_type = factor(pair_type, levels=c("Both Weak","Mixed","Both Strong"))) %>%
+        left_join(
+            cancer_program_activity %>% 
+                distinct(PERT_GENE, activity_diff) %>%
+                rename(activity_diff_source=activity_diff),
+            by=c("source"="PERT_GENE")
+        ) %>%
+        left_join(
+            cancer_program_activity %>% 
+                distinct(PERT_GENE, activity_diff) %>%
+                rename(activity_diff_target=activity_diff),
+            by=c("target"="PERT_GENE")
+        ) %>%
+        rowwise() %>%
+        mutate(activity_diff_avg = mean(activity_diff_source,activity_diff_target)) %>%
+        ungroup()
     
     comparisons = list(c("Both Weak", "Both Strong"),c("Mixed", "Both Strong"),c("Mixed","Both Weak"))
     plts[["ppi_network_analysis-pair_type_vs_path_length-violin"]] = X %>%
@@ -439,6 +512,92 @@ plot_ppi_network_analysis = function(shortest_paths_pert_sfs){
         coord_flip() +
         labs(x="SF Pair", y="STRINGDB Shortest Path Length")
     
+    corr = cor.test(as.numeric(X[["shortest_path_length"]]), X[["activity_diff_avg"]], method="spearman")
+    corr_label = sprintf("R = %s, p %s", round(corr[["estimate"]],2), format.pval(corr[["p.value"]]))
+    plts[["ppi_network_analysis-activity_diff_avg_vs_path_length-scatter"]] = X %>%
+        ggviolin(x="shortest_path_length", y="activity_diff_avg", color=NA, fill="darkkhaki", trim=TRUE) +
+        geom_boxplot(width=0.1, outlier.size=0.1, fill=NA, color="black") +
+        geom_text(
+            aes(y = -2.25, label=label), 
+            . %>% 
+            count(shortest_path_length) %>% 
+            mutate(label=paste0("n=",n)),
+            position=position_dodge(0.9), size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        annotate(
+            "text", x=3, y=3.7, label=corr_label, size=FONT_SIZE, family=FONT_FAMILY
+        ) + 
+        geom_hline(yintercept=0, size=LINE_SIZE , linetype="dashed", color="black") +
+        labs(x="STRINGDB Shortest Path Length", y="Median Program Act. Diff.\n(Avg. by SF Pair)")
+    
+    # how many of the possible targets are regulated by another SF?
+    sfs = splicing_factors %>%
+        left_join(cancer_program, by=c("ENSEMBL","GENE")) %>%
+        mutate(
+            sf_type = case_when(
+                is.na(driver_type) ~ "Non-driver SF",
+                driver_type=="Oncogenic" ~ "Oncogenic",
+                driver_type=="Tumor suppressor" ~ "Tumor suppressor"
+            )
+        )
+    
+    total_sfs = sfs %>%
+        count(sf_type, name="n_total")
+    
+    edges = X %>% 
+        distinct(source, target) %>%
+        left_join(
+            sfs %>% distinct(GENE, sf_type) %>% rename(regulator_type=sf_type), by=c("source"="GENE")
+        ) %>%
+        left_join(
+            sfs %>% distinct(GENE, sf_type) %>% rename(target_type=sf_type), by=c("target"="GENE")
+        ) %>%
+        drop_na() %>%
+        distinct(target, regulator_type, target_type) %>%
+        filter(target_type!="Not SF") %>%
+        count(regulator_type, target_type) %>%
+        left_join(total_sfs, by=c("target_type"="sf_type")) %>%
+        mutate(
+            perc = n / n_total,
+            edge_label = sprintf("%s (n=%s)", round(perc, 2), n),
+            regulator_class = regulator_type,
+            node_label = sprintf("%s (n=%s)", target_type, n_total)
+        )
+    
+    nodes = edges %>%
+        distinct(node_label) %>%
+        mutate(regulator_class = gsub(" \\(.*", "", node_label)) %>%
+        distinct(regulator_class, node_label)
+    
+    g = tbl_graph(nodes=nodes, edges=edges, directed=TRUE)
+        
+    plts[["ppi_network_analysis-regulator_type_perc-graph"]] = g %>%
+        ggraph() +
+        geom_edge_arc(
+            arrow=arrow(length=unit(3, 'mm')), 
+            aes(label=edge_label, width=perc, color=regulator_class),
+            start_cap=circle(3, 'mm'),
+            end_cap=circle(3, 'mm'),
+            strength=0.2,
+            alpha=0.5,
+            label_size=FONT_SIZE, family=FONT_FAMILY
+        ) + 
+        geom_edge_loop(
+            aes(label=edge_label, width=perc, color=regulator_class), 
+            arrow=arrow(length=unit(3, 'mm')),
+            alpha=0.5,
+            label_size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        geom_node_text(
+            aes(label=node_label, color=regulator_class),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        color_palette(PAL_GENE_TYPE) +
+        scale_edge_color_manual(values=PAL_GENE_TYPE) +
+        scale_edge_width_continuous(range = c(0.2, 1)) +
+        theme_void() +
+        theme(aspect.ratio=1)
+    
     return(plts)
 }
 
@@ -446,13 +605,12 @@ make_plots = function(cancer_program_activity, enrichments, networks_sf_ex, shor
     plts = list(
         plot_program_activity(cancer_program_activity),
         plot_enrichments(enrichments),
-        plot_sf_network_analysis(networks_sf_ex),
-        plot_ppi_network_analysis(shortest_paths_pert_sfs)
+        plot_sf_network_analysis(networks_sf_ex, splicing_factors, cancer_program),
+        plot_ppi_network_analysis(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program)
     )
     plts = do.call(c,plts)
     return(plts)
 }
-
 
 make_figdata = function(cancer_program_activity, enrichments,  networks_sf_ex, shortest_paths_pert_sfs){
     figdata = list(
@@ -462,7 +620,6 @@ make_figdata = function(cancer_program_activity, enrichments,  networks_sf_ex, s
     )
     return(figdata)
 }
-
 
 save_plt = function(plts, plt_name, extension='.pdf', 
                     directory='', dpi=350, format=TRUE,
@@ -486,16 +643,18 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_program-scatter", '.pdf', figs_dir, width=8, height=17)
     save_plt(plts, "program_activity-diff_ranking_by_cell_line_and_sfornot-scatter", '.pdf', figs_dir, width=8, height=12)
     save_plt(plts, "program_activity-diff_vs_cosmic-violin", '.pdf', figs_dir, width=8, height=8)
-    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=10, height=7)
+    save_plt(plts, "program_activity-diff_vs_splicing_program-violin", '.pdf', figs_dir, width=4.5, height=5)
     
     save_plt(plts, "enrichments-activity_diff-dot", '.pdf', figs_dir, width=11, height=5.5)
     
     save_plt(plts, "sf_network_analysis-sf_vs_target_type_freq-bar", '.pdf', figs_dir, width=8, height=9)
-    save_plt(plts, "sf_network_analysis-target_type_freq_vs_activity_diff-scatter", '.pdf', figs_dir, width=8, height=9)
+    save_plt(plts, "sf_network_analysis-target_type_freq_vs_activity_diff-non_driver-scatter", '.pdf', figs_dir, width=8, height=9)
+    save_plt(plts, "sf_network_analysis-regulator_type_perc-graph", '.pdf', figs_dir, width=7, height=8)
     
     save_plt(plts, "ppi_network_analysis-pair_type_vs_path_length-violin", '.pdf', figs_dir, width=6.5, height=4)
+    save_plt(plts, "ppi_network_analysis-activity_diff_avg_vs_path_length-scatter", '.pdf', figs_dir, width=6.5, height=4)
+    save_plt(plts, "ppi_network_analysis-regulator_type_perc-graph", '.pdf', figs_dir, width=7, height=8)
 }
-
 
 save_figdata = function(figdata, dir){
     lapply(names(figdata), function(x){

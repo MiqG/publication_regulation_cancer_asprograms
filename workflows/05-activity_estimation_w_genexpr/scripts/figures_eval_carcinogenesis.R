@@ -87,7 +87,7 @@ plot_eval_bulk = function(protein_activity_bulk){
         labs(x="Cell Line", y="Protein Activity Diff.", color="Network")
 
     plts[["eval_bulk-cell_line_vs_activity_diff-adjusted-line"]] = X %>%
-        filter(cell_line_name!="BJ_PRIMARY" & !is.na(model_type) & str_detect(dataset_id,"fclayer")) %>%
+        filter(cell_line_name!="BJ_PRIMARY" & str_detect(dataset_id,"fclayer")) %>%
         mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
         group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession, driver_type) %>%
         summarize(activity = median(activity)) %>%

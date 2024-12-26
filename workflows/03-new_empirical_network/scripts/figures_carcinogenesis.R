@@ -4,6 +4,7 @@ require(ggpubr)
 require(cowplot)
 require(extrafont)
 require(ggrepel)
+require(clusterProfiler)
 
 # variables
 RANDOM_SEED = 1234
@@ -23,6 +24,13 @@ PAL_DRIVER_TYPE = c(
     "Oncogenic"="#F6AE2D"
 )
 
+PAL_GENE_TYPE = c(
+    "Not SF"="darkgreen",
+    "Non-driver SF"="darkred",
+    "Tumor suppressor"="#6C98B3",
+    "Oncogenic"="#F6AE2D"
+)
+
 PAL_DARK = "darkred"
 
 # Development
@@ -33,13 +41,28 @@ PAL_DARK = "darkred"
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","new_empirical_network")
 # genexpr_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","genexpr_tpm","tumorigenesis.tsv.gz")
+# splicing_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","event_psi","tumorigenesis-EX.tsv.gz")
 # protein_activity_file = file.path(RESULTS_DIR,"files","protein_activity","carcinogenesis-EX.tsv.gz")
 # metadata_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","tumorigenesis.tsv.gz")
 # driver_types_file = file.path(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+# event_info_file = file.path(SUPPORT_DIR,"supplementary_tables","supdata01_event_prior_knowledge.txt")
+# regulons_dir = file.path(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
+# msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
 # figs_dir = file.path(RESULTS_DIR,"figures","carcinogenesis")
 
 ##### FUNCTIONS #####
-plot_carcinogenesis = function(protein_activity, genexpr){
+load_ontologies = function(msigdb_dir, cosmic_genes_file){
+    ontologies = list(
+        "reactome" = read.gmt(file.path(msigdb_dir,"c2.cp.reactome.v7.4.symbols.gmt")),
+        "hallmarks" = read.gmt(file.path(msigdb_dir,"h.all.v7.4.symbols.gmt")),
+        "oncogenic_signatures" = read.gmt(file.path(msigdb_dir,"c6.all.v7.4.symbols.gmt")),
+        "GO_BP" = read.gmt(file.path(msigdb_dir,"c5.go.bp.v7.4.symbols.gmt")),
+        "GO_CC" = read.gmt(file.path(msigdb_dir,"c5.go.cc.v7.4.symbols.gmt"))
+    )
+    return(ontologies)
+}
+
+plot_carcinogenesis = function(protein_activity, genexpr, splicing, program_networks){
     plts = list()
     
     X = protein_activity %>%
@@ -115,7 +138,60 @@ plot_carcinogenesis = function(protein_activity, genexpr){
         ) +
         theme_pubr() +
         labs(x="Cell Line", y="Gene Expression log2FC", fill="Driver Type")
-
+    
+    # splicing of cancer driver exons
+    X = splicing %>%
+        mutate(
+            cell_line_name = factor(cell_line_name, levels=FIBROBLASTS),
+            is_known_driver = replace_na(is_known_driver, FALSE)
+        ) %>%
+        drop_na(cell_line_name)
+    ctl_splicing = splicing %>%
+        filter(cell_line_name=="BJ_PRIMARY") %>%
+        distinct(event_psi, EVENT) %>%
+        dplyr::rename(ctl_psi = event_psi)
+    X = X %>%
+        left_join(ctl_splicing, by="EVENT") %>%
+        mutate(
+            event_dpsi = event_psi - ctl_psi,
+            abs_event_dpsi = abs(event_dpsi),
+        )
+    
+    plts[["carcinogenesis-cell_line_vs_splicing_dpsi-driver_exons-violin"]] = X %>%
+        filter(cell_line_name!="BJ_PRIMARY") %>%
+        ggplot(aes(x=cell_line_name, y=abs_event_dpsi, group=interaction(cell_line_name,is_known_driver))) +
+        geom_boxplot(aes(color=is_known_driver), outlier.size=0.1, fill=NA, position=position_dodge(0.9)) +
+        color_palette(c("lightgrey",PAL_DARK)) +
+        geom_text(
+            aes(y=-3, label=label),
+            . %>% count(cell_line_name, is_known_driver) %>% mutate(label=sprintf("n=%s",n)),
+            size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9)
+        ) +
+        theme_pubr() +
+        labs(x="Carcinogenic Stage", y="|Delta PSI|", color="Cancer Driver Exon")
+    
+    X = program_networks %>%
+        distinct(regulator, target, GENE, driver_type, is_known_driver) %>%
+        left_join(X %>% distinct(EVENT, cell_line_name, event_dpsi, abs_event_dpsi), by=c("target"="EVENT")) %>%
+        mutate(
+            driver_type = replace_na(driver_type, "Non-driver SF"),
+            is_known_driver = replace_na(is_known_driver, FALSE)            
+        )
+    
+    plts[["carcinogenesis-cell_line_vs_splicing_dpsi-driver_programs_targets-violin"]] = X %>%
+        filter(cell_line_name!="BJ_PRIMARY") %>%
+        ggplot(aes(x=cell_line_name, y=abs_event_dpsi, group=interaction(cell_line_name,driver_type))) +
+        geom_violin(aes(fill=driver_type), trim=TRUE, color=NA) +
+        geom_boxplot(width=0.2, outlier.size=0.1, fill=NA, color="black", position=position_dodge(0.9)) +
+        fill_palette(PAL_GENE_TYPE) +
+        geom_text(
+            aes(y=-3, label=label),
+            . %>% count(cell_line_name, driver_type) %>% mutate(label=sprintf("n=%s",n)),
+            size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9)
+        ) +
+        theme_pubr() +
+        labs(x="Carcinogenic Stage", y="|Delta PSI|", fill="Regulator SF Type")
+    
     # random control
     X = protein_activity %>%
         group_by(cell_line_name, study_accession) %>%
@@ -148,12 +224,40 @@ plot_carcinogenesis = function(protein_activity, genexpr){
     return(plts)
 }
 
+plot_enrichments = function(enrichments){
+    plts = list()
+    
+    X = enrichments
+    
+    terms_oi = X %>%
+        group_by(gene_set) %>%
+        slice_max(GeneRatio, n=10) %>%
+        ungroup() %>%
+        pull(Description) %>%
+        unique()
+    
+    plts[["enrichments-reactome-bar"]] = X %>%
+        filter(Description %in% terms_oi) %>%
+        group_by(Description) %>%
+        mutate(ratio_sums = sum(GeneRatio)) %>%
+        ungroup() %>%
+        arrange(GeneRatio) %>%
+        ggbarplot(x="Description", y="GeneRatio", fill="driver_type", color=NA,
+                  palette=PAL_DRIVER_TYPE, position=position_dodge(0.9)) +
+        geom_text(aes(label=Count, group=driver_type), 
+                  size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9), hjust=-0.1) +
+        labs(x="Description", y="GeneRatio", fill="Driver Type") +
+        coord_flip()
+    
+    return(plts)
+}
 
 make_plots = function(
-    protein_activiy, genexpr
+    protein_activity, genexpr, splicing, enrichments, program_networks
 ){
     plts = list(
-        plot_carcinogenesis(protein_activiy, genexpr)
+        plot_carcinogenesis(protein_activity, genexpr, splicing, program_networks),
+        plot_enrichments(enrichments)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -191,7 +295,11 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "carcinogenesis-cell_line_vs_activity-violin", '.pdf', figs_dir, width=6, height=4.5)
     save_plt(plts, "carcinogenesis-cell_line_vs_activity_diff-line", '.pdf', figs_dir, width=6, height=2.25)
     save_plt(plts, "carcinogenesis-cell_line_vs_genexpr_fc-violin", '.pdf', figs_dir, width=6, height=6)
+    save_plt(plts, "carcinogenesis-cell_line_vs_splicing_dpsi-driver_exons-violin", '.pdf', figs_dir, width=6, height=4.5)
+    save_plt(plts, "carcinogenesis-cell_line_vs_splicing_dpsi-driver_programs_targets-violin", '.pdf', figs_dir, width=6, height=5.5)
     save_plt(plts, "carcinogenesis-cell_line_vs_activity-random-violin", '.pdf', figs_dir, width=6, height=6)
+    
+    save_plt(plts, "enrichments-reactome-bar", '.pdf', figs_dir, width=16, height=8)
 }
 
 
@@ -217,6 +325,9 @@ parseargs = function(){
         make_option("--protein_activity_file", type="character"),
         make_option("--metadata_file", type="character"),
         make_option("--driver_types_file", type="character"),
+        make_option("--event_info_file", type="character"),
+        make_option("--regulons_dir", type="character"),
+        make_option("--msigdb_dir", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -233,16 +344,28 @@ main = function(){
     protein_activity_file = args[["protein_activity_file"]]
     metadata_file = args[["metadata_file"]]
     driver_types_file = args[["driver_types_file"]]
+    event_info_file = args[["event_info_file"]]
+    regulons_dir = args[["regulons_dir"]]
+    msigdb_dir = args[["msigdb_dir"]]
     figs_dir = args[["figs_dir"]]
     
-    set.seed(RANDOM_SEED)    
     dir.create(figs_dir, recursive = TRUE)
+    set.seed(RANDOM_SEED)    
     
     # load
     genexpr = read_tsv(genexpr_file)
+    splicing = read_tsv(splicing_file)
     protein_activity = read_tsv(protein_activity_file)
     metadata = read_tsv(metadata_file)
     driver_types = read_tsv(driver_types_file)
+    event_info = read_tsv(event_info_file)
+    networks_sf_ex = lapply(list.files(regulons_dir, full.names=TRUE), function(regulons_file){
+        regulon_id = basename(regulons_file) %>% gsub("-delta_psi.tsv.gz","",.)
+        regulons = read_tsv(regulons_file) %>%
+            mutate(regulon_id = regulon_id)
+        return(regulons)
+    }) %>% bind_rows()
+    ontologies = load_ontologies(msigdb_dir)
     
     # prep
     protein_activity = protein_activity %>%
@@ -302,9 +425,58 @@ main = function(){
         ungroup() %>%
         left_join(driver_types, by=c("ID"="ENSEMBL")) %>%
         drop_na(driver_type)
+    
+    splicing = splicing %>%
+        pivot_longer(-EVENT, names_to="sampleID", values_to="event_psi") %>%
+        left_join(metadata, by="sampleID") %>%
+        drop_na(condition, event_psi) %>%
+        mutate(
+            condition_lab = sprintf(
+                "%s (%s%s) (%s%s) | %s | %s", condition, pert_time, pert_time_units, 
+                pert_concentration, pert_concentration_units, cell_line_name, study_accession
+            )
+        ) %>%
+        # summarize replicates
+        group_by(condition_lab, condition, pert_time, pert_time_units, 
+                 pert_concentration, pert_concentration_units, cell_line_name, study_accession,
+                 PERT_ENSEMBL, PERT_GENE, EVENT) %>%
+        summarize(
+            event_psi = median(event_psi, na.rm=TRUE),
+        ) %>%
+        ungroup() %>%
+        left_join(event_info, by="EVENT")
 
+    # enrichment program targets
+    program_networks = networks_sf_ex %>%
+        distinct(regulator, target) %>%
+        left_join(event_info, by=c("target"="EVENT")) %>%
+        left_join(driver_types %>% distinct(ENSEMBL,driver_type), by=c("regulator"="ENSEMBL"))
+    
+    enrichments = list()
+    genes = program_networks %>% filter(driver_type=="Oncogenic") %>% pull(GENE) %>% unique()
+    enrichments[["oncogenics"]] = enricher(gene=genes, TERM2GENE=ontologies[["reactome"]])
+    genes = program_networks %>% filter(driver_type=="Tumor suppressor") %>% pull(GENE) %>% unique()
+    enrichments[["suppressors"]] = enricher(gene=genes, TERM2GENE=ontologies[["reactome"]])
+    enrichments = lapply(names(enrichments), function(gene_set_oi){
+            x = enrichments[[gene_set_oi]] %>%
+                as.data.frame() %>%
+                mutate(gene_set = gene_set_oi)
+            return(x)
+        }) %>%
+        bind_rows() %>%
+        filter(p.adjust < THRESH_FDR) %>%
+        rowwise() %>%
+        mutate(GeneRatio = eval(parse(text=GeneRatio))) %>%
+        ungroup() %>%
+        mutate(
+            driver_type = case_when(
+                gene_set=="suppressors" ~ "Tumor suppressor",
+                gene_set=="oncogenics" ~ "Oncogenic"
+            )
+        )
+    
     # plot
-    plts = make_plots(protein_activity, genexpr)
+    plts = make_plots(protein_activity, genexpr, splicing, enrichments, program_networks)
     
     # make figdata
     figdata = make_figdata(protein_activity)
