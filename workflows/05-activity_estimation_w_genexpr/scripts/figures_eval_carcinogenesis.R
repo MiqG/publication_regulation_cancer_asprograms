@@ -70,7 +70,7 @@ plot_eval_bulk = function(protein_activity_bulk){
             dataset_id = gsub("carcinogenesis-","",dataset_id)
         )
     
-    plts[["eval_bulk-cell_line_vs_activity_diff-raw-line"]] = X %>%
+    x = X %>%
         filter(cell_line_name!="BJ_PRIMARY" & is.na(model_type)) %>%
         mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
         group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession, driver_type) %>%
@@ -78,14 +78,22 @@ plot_eval_bulk = function(protein_activity_bulk){
         ungroup() %>%
         group_by(dataset_id, omic_type, model_type, cell_line_name, study_accession) %>%
         summarize(activity_diff = sum(activity)) %>%
-        ungroup() %>%
+        ungroup()
+    
+    plts[["eval_bulk-cell_line_vs_activity_diff-raw-line"]] = x %>%
         ggline(
             x="cell_line_name", y="activity_diff", color="dataset_id", numeric.x.axis=TRUE,
             size=LINE_SIZE, linetype="dashed", point.size=0.05, palette=PAL_ACTIVITY_TYPES
         ) +
         geom_hline(yintercept=0, linetype="dashed", color="black") +
         labs(x="Cell Line", y="Protein Activity Diff.", color="Network")
-
+    
+    e = x %>% filter(omic_type=="EX") %>% distinct(cell_line_name, activity_diff) %>% deframe()
+    g = x %>% filter(omic_type=="bulkgenexpr") %>% distinct(cell_line_name, activity_diff) %>% deframe()
+    d = sqrt(sum((e - g[names(e)])^2))
+    msg = sprintf("Euclidean distance between bulk gene-based activities vs exon-based activities: %s", d)
+    print(msg)
+    
     plts[["eval_bulk-cell_line_vs_activity_diff-adjusted-line"]] = X %>%
         filter(cell_line_name!="BJ_PRIMARY" & str_detect(dataset_id,"fclayer")) %>%
         mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%

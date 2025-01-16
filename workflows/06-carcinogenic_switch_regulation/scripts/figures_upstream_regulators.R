@@ -271,7 +271,7 @@ plot_program_activity = function(cancer_program_activity){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Relative Ranking", y="Oncogenic vs Tumor Suppressor\nSplicing Program Activity")
     
-    comparisons = list(c("Not in COSMIC", "COSMIC Suppressor"), c("Not in COSMIC", "COSMIC Oncogenic"))
+    comparisons = list(c("Not in COSMIC", "COSMIC Suppressor"), c("Not in COSMIC", "COSMIC Oncogenic"), c("Not in COSMIC", "COSMIC Dual"))
     plts[["program_activity-diff_vs_cosmic-violin"]] = X %>%
         mutate(
             cosmic_driver_type = replace_na(cosmic_driver_type, "Not in COSMIC"),
