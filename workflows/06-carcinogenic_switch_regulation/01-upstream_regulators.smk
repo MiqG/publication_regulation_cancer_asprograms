@@ -119,7 +119,7 @@ rule shortest_paths_stringdb:
         targets = os.path.join(SUPPORT_DIR,"pert_splicing_factors-symbol.txt")
     output:
         os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_{set_oi}.tsv.gz')
-    threads: 10
+    threads: 20
     shell:
         """
         nice python scripts/ppi_path_lengths.py \
@@ -142,7 +142,8 @@ rule figures_upstream_regulators:
         event_info = os.path.join(RAW_DIR,'VastDB','EVENT_INFO-hg38_noseqs.tsv'),
         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
         shortest_paths_pert_sfs = os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors.tsv.gz'),
-        shortest_paths_random = os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz')
+        shortest_paths_random = os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz'),
+        ppi_network = os.path.join(PREP_DIR,'ppi','STRINGDB.tsv.gz')
     output:
         directory(os.path.join(RESULTS_DIR,"figures","upstream_regulators"))
     shell:
@@ -159,5 +160,6 @@ rule figures_upstream_regulators:
                     --splicing_factors_file={input.splicing_factors} \
                     --shortest_paths_pert_sfs_file={input.shortest_paths_pert_sfs} \
                     --shortest_paths_random_file={input.shortest_paths_random} \
+                    --ppi_network_file={input.ppi_network} \
                     --figs_dir={output}
         """

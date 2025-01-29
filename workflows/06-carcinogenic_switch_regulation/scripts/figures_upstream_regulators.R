@@ -67,6 +67,7 @@ PAL_GENE_TYPE = c(
 
 # shortest_paths_pert_sfs_file = file.path(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors.tsv.gz')
 # shortest_paths_random_file = file.path(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz')
+# ppi_network_file = file.path(PREP_DIR,'ppi','STRINGDB.tsv.gz')
 
 # gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz")
 # gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-reactome.tsv.gz")
@@ -476,7 +477,7 @@ plot_sf_network_analysis = function(networks_sf_ex, splicing_factors, cancer_pro
     return(plts)
 }
 
-plot_ppi_network_analysis = function(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program){
+plot_ppi_network_analysis = function(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program, ppi_network){
     plts = list()
     
     X = shortest_paths_pert_sfs %>%
@@ -539,12 +540,14 @@ plot_ppi_network_analysis = function(shortest_paths_pert_sfs, cancer_program_act
                 driver_type=="Oncogenic" ~ "Oncogenic",
                 driver_type=="Tumor suppressor" ~ "Tumor suppressor"
             )
-        )
+        ) %>%
+        # consider only SFs available in PPI
+        filter()
     
     total_sfs = sfs %>%
         count(sf_type, name="n_total")
     
-    edges = X %>% 
+    edges = ppi_network %>% 
         distinct(source, target) %>%
         left_join(
             sfs %>% distinct(GENE, sf_type) %>% rename(regulator_type=sf_type), by=c("source"="GENE")
@@ -601,18 +604,18 @@ plot_ppi_network_analysis = function(shortest_paths_pert_sfs, cancer_program_act
     return(plts)
 }
 
-make_plots = function(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs){
+make_plots = function(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs, ppi_network, splicing_factors, cancer_program){
     plts = list(
         plot_program_activity(cancer_program_activity),
         plot_enrichments(enrichments),
         plot_sf_network_analysis(networks_sf_ex, splicing_factors, cancer_program),
-        plot_ppi_network_analysis(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program)
+        plot_ppi_network_analysis(shortest_paths_pert_sfs, cancer_program_activity, splicing_factors, cancer_program, ppi_network)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
-make_figdata = function(cancer_program_activity, enrichments,  networks_sf_ex, shortest_paths_pert_sfs){
+make_figdata = function(cancer_program_activity, enrichments,  networks_sf_ex, shortest_paths_pert_sfs, ppi_network, splicing_factors, cancer_program){
     figdata = list(
         "upstream_regulators" = list(
             "cancer_program_activity" = cancer_program_activity
@@ -684,6 +687,7 @@ parseargs = function(){
         make_option("--splicing_factors_file", type="character"),
         make_option("--shortest_paths_pert_sfs_file", type="character"),
         make_option("--shortest_paths_random_file", type="character"),
+        make_option("--ppi_network_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -706,6 +710,7 @@ main = function(){
     splicing_factors_file = args[["splicing_factors_file"]]
     shortest_paths_pert_sfs_file = args[["shortest_paths_pert_sfs_file"]]
     shortest_paths_random_file = args[["shortest_paths_random_file"]]
+    ppi_network_file = args[["ppi_network_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)
@@ -728,6 +733,7 @@ main = function(){
     
     shortest_paths_pert_sfs = read_tsv(shortest_paths_pert_sfs_file)
     shortest_paths_random = read_tsv(shortest_paths_random_file)
+    ppi_network = read_tsv(ppi_network_file)
     
     # prep
     gene_info = gene_info %>%
@@ -874,10 +880,10 @@ main = function(){
         )
     
     # plot
-    plts = make_plots(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs)
+    plts = make_plots(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs, ppi_network, splicing_factors, cancer_program)
     
     # make figdata
-    figdata = make_figdata(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs)
+    figdata = make_figdata(cancer_program_activity, enrichments, networks_sf_ex, shortest_paths_pert_sfs, ppi_network, splicing_factors, cancer_program)
     
     # save
     save_plots(plts, figs_dir)
