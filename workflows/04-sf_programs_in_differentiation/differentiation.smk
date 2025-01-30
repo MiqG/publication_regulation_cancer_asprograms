@@ -13,17 +13,14 @@ REGULONS_PATH = os.path.join(ROOT,"results","new_empirical_network","files","exp
 DRIVER_TYPES_PATH = os.path.join(ROOT,"results","new_empirical_network",'files','PANCAN','cancer_program.tsv.gz')
 
 METADATA_FILES = {
-    "ipsc_differentiation": os.path.join(PREP_DIR,'metadata','ipsc_differentiation.tsv.gz'),
     "CardosoMoreira2020": os.path.join(DATASET_DIR,'metadata','CardosoMoreira2020.tsv.gz')
 }
 
 SPLICING_FILES = {
-    "ipsc_differentiation": os.path.join(PREP_DIR,'event_psi','ipsc_differentiation-EX.tsv.gz'),
     "CardosoMoreira2020": os.path.join(DATASET_DIR,'event_psi','CardosoMoreira2020-EX.tsv.gz')
 }
 
 GENEXPR_FILES = {
-    "ipsc_differentiation": os.path.join(PREP_DIR,'genexpr_tpm','ipsc_differentiation.tsv.gz'),
     "CardosoMoreira2020": os.path.join(DATASET_DIR,'genexpr_tpm','CardosoMoreira2020.tsv.gz')
 }
 
@@ -34,7 +31,7 @@ DATA_FILES = {
 
 # parameters
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
-DATASETS = ["ipsc_differentiation","CardosoMoreira2020"]
+DATASETS = ["CardosoMoreira2020"]
 OMIC_TYPES = ["EX","genexpr"]
 
 ##### RULES #####
@@ -47,7 +44,6 @@ rule all:
         expand(os.path.join(RESULTS_DIR,"files","protein_activity","{dataset}-EX.tsv.gz"), dataset=DATASETS),
 
         # figures
-        os.path.join(RESULTS_DIR,"figures","ipsc_differentiation"),
         os.path.join(RESULTS_DIR,"figures","CardosoMoreira2020")
     
     
@@ -78,14 +74,6 @@ rule compute_signatures:
         signatures = {}
         for sample_oi in metadata["sampleID"]:
             # get the controls of the sample
-            if dataset=="ipsc_differentiation":
-                study = metadata.loc[metadata["sampleID"]==sample_oi,"study_accession"]
-                ctls = metadata.loc[
-                    (metadata["study_accession"].isin(study) &
-                    (metadata["condition"] == "iPSC")),
-                    "sampleID"
-                ]
-                
             elif dataset=="CardosoMoreira2020":
                 tissue = metadata.loc[metadata["sampleID"]==sample_oi,"sample_title"]
                 tissue = tissue.values[0].split(".")[2]
@@ -127,24 +115,6 @@ rule compute_protein_activity:
                     --regulons_path={input.regulons_path} \
                     --output_file={output}
        """
-        
-rule figures_ipsc_differentiation:
-    input:
-        metadata = os.path.join(PREP_DIR,"metadata","ipsc_differentiation.tsv.gz"),
-        genexpr = os.path.join(PREP_DIR,"genexpr_tpm","ipsc_differentiation.tsv.gz"),
-        protein_activity = os.path.join(RESULTS_DIR,"files","protein_activity","ipsc_differentiation-EX.tsv.gz"),
-        driver_types = DRIVER_TYPES_PATH
-    output:
-        directory(os.path.join(RESULTS_DIR,"figures","ipsc_differentiation"))
-    shell:
-        """
-        Rscript scripts/figures_ipsc_differentiation.R \
-                    --genexpr_file={input.genexpr} \
-                    --protein_activity_file={input.protein_activity} \
-                    --metadata_file={input.metadata} \
-                    --driver_types_file={input.driver_types} \
-                    --figs_dir={output}
-        """    
         
 rule figures_CardosoMoreira2020:
     input:
