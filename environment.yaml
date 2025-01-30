@@ -1,4 +1,4 @@
-name: publication_viper_splicing
+name: publication_regulation_cancer_asprograms
 channels:
     - conda-forge
     - bioconda

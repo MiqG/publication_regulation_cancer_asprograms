@@ -7,7 +7,6 @@ SUPPORT_DIR = os.path.join(ROOT,'support')
 ##### RULES #####
 rule all:
     input:
-        # scPerturb
         ## ReplogleWeissman2022
         os.path.join(DATA_DIR,"scPerturb","ReplogleWeissman2022_K562_essential.h5ad"),
         os.path.join(DATA_DIR,"scPerturb","ReplogleWeissman2022_K562_gwps.h5ad"),
