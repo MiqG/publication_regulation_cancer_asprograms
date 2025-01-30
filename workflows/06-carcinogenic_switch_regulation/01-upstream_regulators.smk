@@ -22,7 +22,6 @@ SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 PERT_GENEXPR_FILES = {
     "ReplogleWeissman2022_rpe1": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
-    #"ReplogleWeissman2022_K562_essential": os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_K562_essential-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz")
 }
 
 MODEL_TYPES = ["fclayer"]
@@ -45,7 +44,6 @@ rule all:
         
         # make figures
         os.path.join(RESULTS_DIR,"figures","upstream_regulators"),
-        
 
         
 rule compute_protein_activity:
