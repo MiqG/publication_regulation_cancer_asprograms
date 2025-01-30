@@ -1,8 +1,3 @@
-"""
-Author: Miquel Anglada Girotto
-Contact: miquelangladagirotto [at] gmail [dot] com
-"""
-
 import os
 import pandas as pd
 
