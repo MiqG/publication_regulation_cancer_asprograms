@@ -1,4 +1,4 @@
-## Carcinogenic Switch Regulation - Splicing factor activity analysis of Perturb-seq dataset to study the regulation of cancer splicing programs systematically
+# Carcinogenic Switch Regulation - Splicing factor activity analysis of Perturb-seq dataset to study the regulation of cancer splicing programs systematically
 
 Workflows identifying potential genes and pathways regulating cancer splicing programs.
 

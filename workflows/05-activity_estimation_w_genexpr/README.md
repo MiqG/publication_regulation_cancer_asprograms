@@ -1,4 +1,4 @@
-## Activity estimation with gene expression - Adjusting splicing factor activities from gene expression signatures to resemble splicing factor activities from exon inclusion
+# Activity estimation with gene expression - Adjusting splicing factor activities from gene expression signatures to resemble splicing factor activities from exon inclusion
 
 Workflows making SF-gene networks to estimate SF activity from gene expression signatures and using shallow ANNs to adjust gene-based activies to resemble those obtained with SF-exon networks.
 
