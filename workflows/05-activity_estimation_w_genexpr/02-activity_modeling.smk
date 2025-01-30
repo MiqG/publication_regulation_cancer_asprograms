@@ -11,8 +11,8 @@ SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 DATASETS = {
     "CCLE": {
-        "genexpr": os.path.join(PREP_DIR,"genexpr_tpm","CCLE.tsv.gz"), 
-        "EX": os.path.join(PREP_DIR,"event_psi","CCLE-EX.tsv.gz")
+        "genexpr": os.path.join(RAW_DIR,"viper_splicing_intermediate_files","genexpr_tpm","CCLE.tsv.gz"), 
+        "EX": os.path.join(RAW_DIR,"viper_splicing_intermediate_files","event_psi","CCLE-EX.tsv.gz")
     }
 }
 
