@@ -5,6 +5,7 @@ channels:
     - pytorch
 dependencies:
     - snakemake=7.32.4
+    - pip
     - pytorch
     - lightning
     - torchmetrics

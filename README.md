@@ -21,7 +21,7 @@ This repository contains the workflows (from data download to figures) used in t
     7. `prepare_submission` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/07-prepare_submission)): prepare supplementary tables and intermediate files
 
 ## Installation and requirements
-### Conda/mamba Environment
+### 1. Conda/mamba Environment
 
 We recommend using mamba.
 
@@ -29,7 +29,14 @@ We recommend using mamba.
 mamba env create -f environment.yaml
 ```
 
-### `vast-tools` (manual installation)
+### 2. `src/vipersp` locally to access Pytorch model architectures
+
+```shell
+conda activate publication_regulation_cancer_asprograms
+pip install -e src/vipersp
+```
+
+### 3. `vast-tools` (manual installation)
 Based on https://github.com/vastgroup/vast-tools?tab=readme-ov-file#installation.
 
 Clone vast-tools repository in your desired path:
