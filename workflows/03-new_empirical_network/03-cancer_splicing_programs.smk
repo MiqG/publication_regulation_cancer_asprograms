@@ -61,8 +61,8 @@ rule all:
         ## define cancer program
         os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz'),
         
-        # # figures
-        # os.path.join(RESULTS_DIR,"figures","cancer_splicing_program")
+        # figures
+        os.path.join(RESULTS_DIR,"figures","cancer_splicing_program")
         
         
 rule compute_signature_pt_vs_stn:

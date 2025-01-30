@@ -10,8 +10,6 @@ SUPPORT_DIR = os.path.join(ROOT,"support")
 RESULTS_DIR = os.path.join(ROOT,"results","new_empirical_network")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
-VIPER_SPLICING_DIR = os.path.join(ROOT,"../../repositories/viper_splicing")
-
 PERT_SPLICING_FILES = {
     "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_ena.tsv.gz'),
     "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
