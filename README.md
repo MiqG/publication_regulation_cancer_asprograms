@@ -2,6 +2,8 @@
 
 Adapting splicing factor activity analysis to gene expression signatures to study the regulation of splicing factors from single-cell Perturb-seq screens.
 
+This repository contains the workflows (from data download to figures) used in the publication.
+
 ## Structure
 - `config.yaml`
 - `environment.yaml`
