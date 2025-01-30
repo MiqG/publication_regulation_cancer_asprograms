@@ -1,54 +1,75 @@
-# Pipeline
-## Data
-- [X] from scPerturb
-    - [X] ReplogleWeissman2022: K562 and RPE1
-        - QC
-            - exclude too much mitochondrial reads
-            - exclude cells with few UMIs
-            - exclude cells with low knockdown efficiency
-        - make pseudobulks by gemgroup/batch by either:
-            - averaging CPMs
-            - summing reads and computing CPMs afterwards
-        - compute fold changes w.r.t. control cells either:
-            - subracting from corresponding gemgroup/batch
-            - subtracting from the mean across non-treated gemgroup/batches
-            
-- [X] from VIPER splicing
-    - [X] gene expression and splicing of SF perturbations
-    - [X] cancer splicing programs
-    
-## Analysis
-### Splicing factor activity analysis using single cell perturbation datasets
-1. [X] Evaluate how well using empirical SF-exon and SF-gene networks recapitulates SF activity
-    - SF-gene networks recapitulate SF-exon activities
-    - FIGURES
-        - [X] recall SF-exon and SF-gene vs random
-        - [X] distribution of correlations between SF-exon and SF-gene activities in CCLE dataset
-        - [X] best and worse examples of correlations in a scatter plot
-2. [ ] Evaluate robustness empirical SF-gene networks
-    - FIGURES
-        - [ ] recall SF-gene pruned randomly vs random 
-        - [ ] recall SF-gene pruned with different logFC thresholds
-3. [ ] Evaluate how well activities in the same perturbation experiment in bulk and singl-cell RNA seq correlate
-    - activities measured with bulk and single cell are equivalent
-    - FIGURES
-        - [X] distribution of correlations between activities in bulk (ENCORE K562) and single cell (Replogle K562)
-        - [X] best and worst examples of correlations in scatter plot connected to the distribution panel
-        - [X] evaluate reproducibility between single cell datasets using Replogle K562 genome-wide and essential as independent experiments
-        - [ ] Does the reproducibility change with bulk CRISPR KO vs shRNA KD? Replogle single cell was CRISPRi
-        - [ ] Correlation between changes in gene expression in bulk vs single cell. Is it comparable to the correlation with activity?
-        - [ ] Uncertainty of estimated protein activities: number of expressed/detected genes in single cells vs activity correlations with bulk
-        - in single cell, should we compute median across replicates?
-        
-### Detection of switch in cancer splicing programs during carcinogenesis
-1. [ ] Data from https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE204845
+# Decoding the regulatory architecture of splicing factor programs through single-cell perturbation screens
 
-### Charting the regulation of the cancer splicing program
-4. [ ] Confirm that there is a switch of cancer splicing program during carcinogenesis
-    - SC tumor initiation in intestine: https://www.nature.com/articles/s41392-022-00881-8#Sec9
+Adapting splicing factor activity analysis to gene expression signatures to study the regulation of splicing factors from single-cell Perturb-seq screens.
 
-5. [ ] Compute splicing factor activities for all perturbations in Replogle K562 genome-wide and RPE1
-    - explore which KOs cause the switch of cancer programs
-    - FIGURES
-        - [ ] plot fold change between programs in K562 and RPE1 in a scatter plot -> correlated? One is already cancer the other immortalized
-        - [ ] GSEA in K562 and RPE1 of the fold changes to SF
+## Structure
+- `config.yaml`
+- `environment.yaml`
+- `data`
+- `results`
+- `src`
+- `support`
+- `workflows`
+    1. `obtain_data`([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/01-obtain_data)): raw data download
+    2. `preprocess_data` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/02-preprocess_data)): preparing raw data for analysis
+    3. `new_empirical_network` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/03-new_empirical_network)): extending exisiting splicing factor-exon networks
+    4. `sf_programs_in_differentiation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/04-sf_programs_in_differentiation)): activity analysis of cancer splicing programs during developmental tissue differentiation
+    5. `activity_estimation_w_genexpr` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/05-activity_estimation_w_genexpr)): splicing factor activity estimation from gene expression signatures using shallow ANNs
+    6. `carcinogenic_switch_regulation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/06-carcinogenic_switch_regulation)): genes and pathways influencing carcinogenic regulation of splicing factors
+    7. `prepare_submission` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/07-prepare_submission)): prepare supplementary tables and intermediate files
+
+## Installation and requirements
+### Conda/mamba Environment
+
+We recommend using mamba.
+
+```shell
+mamba env create -f environment.yaml
+```
+
+### `vast-tools` (manual installation)
+Based on https://github.com/vastgroup/vast-tools?tab=readme-ov-file#installation.
+
+Clone vast-tools repository in your desired path:
+```{shell}
+cd ~/repositories # or your desired path
+git clone https://github.com/vastgroup/vast-tools.git
+```
+
+Download VastDB Homo sapiens (Hs2) genome assembly in your desired path:
+```{shell}
+cd ~/projects/publication_regulation_cancer_asprograms/data/raw/VastDB/assemblies # or your desired path
+wget https://vastdb.crg.eu/libs/vastdb.hs2.20.12.19.tar.gz
+tar -xvzf vastdb.hs2.20.12.19.tar.gz
+```
+
+Update `config.yaml` file accordingly with the path to the vast-tools directory and to the VastDB genome assembly.
+
+## Usage
+All workflows were written as `snakemake` pipelines. To execute each workflow:
+
+1. activate the project's environment
+```{shell}
+conda activate publication_regulation_cancer_asprograms
+```
+
+2. use the following command format:
+```{shell}
+snakemake -s <workflow_name>.smk --cores <number_of_cores>
+```
+
+In case you want to run the workflows on your cluster, refer to [snakemake documentation](https://snakemake.readthedocs.io/en/stable/executing/cluster.html) to adapt the command according to your job submission scheduler.
+
+
+## Issues
+Please, report any issues here: https://github.com/MiqG/publication_regulation_cancer_asprograms/issues
+
+
+## Authors
+- [Miquel Anglada Girotto](https://orcid.org/0000-0003-1885-8649)
+- [Samuel Miravet-Verde](https://orcid.org/0000-0002-1542-5912)
+- [Luis Serrano](https://orcid.org/0000-0002-5276-1392)
+
+
+## Citation
+(TODO)
