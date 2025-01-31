@@ -60,8 +60,8 @@ rule make_regulons:
         
         regulators = pd.read_table(input.regulators)
         omic_type = params.omic_type
-        feature_name = "EVENT" if omic_type not in ["genexpr","scgenexpr"] else "ENSEMBL_ID"
-        value_name = "delta_psi" if omic_type not in ["genexpr","scgenexpr"] else "log2fc_genexpr"
+        feature_name = "EVENT" if omic_type not in ["bulkgenexpr","scgenexpr"] else "ENSEMBL_ID"
+        value_name = "delta_psi" if omic_type not in ["bulkgenexpr","scgenexpr"] else "log2fc_genexpr"
         
         # prep regulators
         regulators = regulators[["GENE","ENSEMBL"]]
