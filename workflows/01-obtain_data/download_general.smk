@@ -26,7 +26,7 @@ rule all:
         os.path.join(RAW_DIR,"STRINGDB",'9606.protein.aliases.v11.5.txt.gz'),
         
         # preprocessed files from Anglada-Girotto2024
-        os.path.join(RAW_DIR,"viper_intermediate_files")
+        os.path.join(RAW_DIR,"viper_splicing_intermediate_files")
         
         
 rule download_hgnc:

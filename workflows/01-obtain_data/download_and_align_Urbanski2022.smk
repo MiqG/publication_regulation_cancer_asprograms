@@ -6,8 +6,8 @@ import numpy as np
 configfile: "../../config.yaml"
 PATHS = config["PATHS"]
 PATHS = {k: os.path.expanduser(v) for k, v in PATHS.items()} # make sure to have full paths (without ~)
-VASTDB_DIR = PATHS["VAST_TOOLS"]["VASTDB"]
-VAST_TOOLS_DIR = PATHS["VAST_TOOLS"]["BIN"]
+VASTDB_DIR = PATHS["VASTDB_DIR"]
+VAST_TOOLS_DIR = PATHS["VAST_TOOLS_DIR"]
 
 # variables
 ROOT = os.path.dirname(os.path.dirname(os.getcwd()))

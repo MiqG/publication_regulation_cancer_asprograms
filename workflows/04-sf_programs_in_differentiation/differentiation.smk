@@ -74,7 +74,7 @@ rule compute_signatures:
         signatures = {}
         for sample_oi in metadata["sampleID"]:
             # get the controls of the sample
-            elif dataset=="CardosoMoreira2020":
+            if dataset=="CardosoMoreira2020":
                 tissue = metadata.loc[metadata["sampleID"]==sample_oi,"sample_title"]
                 tissue = tissue.values[0].split(".")[2]
                 ctls = metadata.loc[metadata["sample_title"].str.contains(tissue),"sampleID"]
