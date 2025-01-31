@@ -30,8 +30,8 @@ rule all:
         ### weights
         expand(os.path.join(RESULTS_DIR,'prepare_submission','files','intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS, k=K_CROSS_VALIDATION),
         ### regulators
-        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
-        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
+        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files",'intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
+        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files",'intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
         ## datasets
         ### Rogalska2024
         os.path.join(RESULTS_DIR,"prepare_submission","files","intermediate_files","datasets","event_psi","Rogalska2024-EX.tsv.gz"),
@@ -145,13 +145,14 @@ rule intermediate_files_models_weights:
         
         print("Done!")
         
+        
 rule intermediate_files_models_regulators:
     input:
         input_regulators = os.path.join(RESULTS_DIR,"activity_estimation_w_genexpr","files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
         output_regulators = os.path.join(RESULTS_DIR,"activity_estimation_w_genexpr","files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
     output:
-        input_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
-        output_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
+        input_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files",'intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
+        output_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files",'intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
     run:
         import os
         import subprocess
