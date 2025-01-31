@@ -29,6 +29,14 @@ We recommend using mamba.
 mamba env create -f environment.yaml
 ```
 
+If you need to avoid accessing repo.anaconda.com, run this before (Based on https://github.com/mamba-org/mamba/issues/656):
+```shell
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda config --add channels pytorch
+conda config --remove channels defaults
+```
+
 ### 2. `src/vipersp` locally to access Pytorch model architectures
 
 ```shell

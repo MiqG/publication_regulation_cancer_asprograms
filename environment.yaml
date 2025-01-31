@@ -3,6 +3,7 @@ channels:
     - conda-forge
     - bioconda
     - pytorch
+    - r
 dependencies:
     - snakemake=7.32.4
     - pip
@@ -17,31 +18,21 @@ dependencies:
     - tqdm
     - networkx
     - scipy
-    - csvkit
-    - pyranges
+    - scanpy
     - r-base=4.1
+    - r-optparse
     - r-tidyverse
     - r-ggpubr
     - r-cowplot
     - r-extrafont
-    - r-ggbeeswarm
-    - r-ggplotify
     - r-ggrepel
+    - r-ggplotify
     - r-ggvenn
-    - r-optparse
-    - r-proc
-    - r-proxy
-    - r-readxl
-    - r-scales
     - r-scattermore
-    - r-survival
-    - r-survminer
-    - r-umap
-    - r-purrr
-    - r-matrixstats
+    - r-proc
+    - r-ggraph
+    - r-tidygraph
     - bioconductor-viper
     - bioconductor-clusterprofiler
     - bioconductor-complexheatmap
-    - bioconductor-org.Hs.eg.db
-    - bioconductor-deseq2
-    
+    - bioconductor-biocparallel
