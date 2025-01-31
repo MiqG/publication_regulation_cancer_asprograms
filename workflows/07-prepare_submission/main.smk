@@ -26,8 +26,12 @@ rule all:
         # intermediate files
         ## networks: exon, bulk, single-cell, combined
         os.path.join(RESULTS_DIR,'prepare_submission','files','intermediate_files','networks'),
-        ## models: weights
+        ## models 
+        ### weights
         expand(os.path.join(RESULTS_DIR,'prepare_submission','files','intermediate_files','models',"from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS, k=K_CROSS_VALIDATION),
+        ### regulators
+        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
+        expand(os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz"), omic_regulon=OMIC_GENEXPR_REGULONS, model_type=MODEL_ARCHS),
         ## datasets
         ### Rogalska2024
         os.path.join(RESULTS_DIR,"prepare_submission","files","intermediate_files","datasets","event_psi","Rogalska2024-EX.tsv.gz"),
@@ -126,7 +130,7 @@ rule intermediate_files_networks:
         print("Done!")
         
         
-rule intermediate_files_models:
+rule intermediate_files_models_weights:
     input:
         weights = os.path.join(RESULTS_DIR,"activity_estimation_w_genexpr","files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","weights-{k}.pth")
     output:
@@ -136,6 +140,27 @@ rule intermediate_files_models:
         import subprocess
         
         cmd = ["cp", input.weights, output.weights]
+        print(cmd)
+        subprocess.call(cmd)
+        
+        print("Done!")
+        
+rule intermediate_files_models_regulators:
+    input:
+        input_regulators = os.path.join(RESULTS_DIR,"activity_estimation_w_genexpr","files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
+        output_regulators = os.path.join(RESULTS_DIR,"activity_estimation_w_genexpr","files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
+    output:
+        input_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","input_regulators.tsv.gz"),
+        output_regulators = os.path.join(RESULTS_DIR,'prepare_submission',"files","model_sf_activity","from_{omic_regulon}_to_EX","{model_type}","output_regulators.tsv.gz")
+    run:
+        import os
+        import subprocess
+        
+        cmd = ["cp", input.input_regulators, output.input_regulators]
+        print(cmd)
+        subprocess.call(cmd)
+        
+        cmd = ["cp", input.output_regulators, output.output_regulators]
         print(cmd)
         subprocess.call(cmd)
         
