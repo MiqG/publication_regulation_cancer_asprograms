@@ -12,13 +12,13 @@ This repository contains the workflows (from data download to figures) used in t
 - `src`
 - `support`
 - `workflows`
-    1. `obtain_data`([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/01-obtain_data)): raw data download
-    2. `preprocess_data` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/02-preprocess_data)): preparing raw data for analysis
-    3. `new_empirical_network` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/03-new_empirical_network)): extending exisiting splicing factor-exon networks
-    4. `sf_programs_in_differentiation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/04-sf_programs_in_differentiation)): activity analysis of cancer splicing programs during developmental tissue differentiation
-    5. `activity_estimation_w_genexpr` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/05-activity_estimation_w_genexpr)): splicing factor activity estimation from gene expression signatures using shallow ANNs
-    6. `carcinogenic_switch_regulation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/06-carcinogenic_switch_regulation)): genes and pathways influencing carcinogenic regulation of splicing factors
-    7. `prepare_submission` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/main/workflows/07-prepare_submission)): prepare supplementary tables and intermediate files
+    1. `obtain_data`([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/01-obtain_data)): raw data download
+    2. `preprocess_data` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/02-preprocess_data)): preparing raw data for analysis
+    3. `new_empirical_network` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/03-new_empirical_network)): extending exisiting splicing factor-exon networks
+    4. `sf_programs_in_differentiation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/04-sf_programs_in_differentiation)): activity analysis of cancer splicing programs during developmental tissue differentiation
+    5. `activity_estimation_w_genexpr` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/05-activity_estimation_w_genexpr)): splicing factor activity estimation from gene expression signatures using shallow ANNs
+    6. `carcinogenic_switch_regulation` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/06-carcinogenic_switch_regulation)): genes and pathways influencing carcinogenic regulation of splicing factors
+    7. `prepare_submission` ([Details](https://github.com/MiqG/publication_regulation_cancer_asprograms/tree/master/workflows/07-prepare_submission)): prepare supplementary tables and intermediate files
 
 ## Installation and requirements
 ### 1. Conda/mamba Environment
