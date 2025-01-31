@@ -4,6 +4,8 @@ Adapting splicing factor activity analysis to gene expression signatures to stud
 
 This repository contains the workflows (from data download to figures) used in the publication.
 
+![Graphical Abstract](graphical_abstract.png)
+
 ## Structure
 - `config.yaml`
 - `environment.yaml`
