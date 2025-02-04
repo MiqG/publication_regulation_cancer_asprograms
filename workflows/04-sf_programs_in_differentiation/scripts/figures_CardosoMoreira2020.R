@@ -153,7 +153,7 @@ plot_cancer_programs = function(protein_activity, genexpr){
         mutate(tissue = factor(tissue, levels=TISSUES)) %>%
         ggline(
             x="time", y="activity_diff", color="tissue", numeric.x.axis=TRUE,
-            size=LINE_SIZE, linetype="dashed", point.size=0.05
+            size=LINE_SIZE, linetype="solid", point.size=0.05
         ) +
         color_palette(get_palette("Dark2", length(TISSUES))) +
         geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +

@@ -735,6 +735,12 @@ main = function(){
     shortest_paths_random = read_tsv(shortest_paths_random_file)
     ppi_network = read_tsv(ppi_network_file)
     
+    sprintf(
+        "%s out of %s COMSIC CGC genes are splicing factors.", 
+        ontologies[["cosmic"]] %>% filter(gene%in%splicing_factors[["GENE"]]) %>% nrow(),
+        ontologies[["cosmic"]] %>% nrow()
+    )
+    
     # prep
     gene_info = gene_info %>%
         mutate(PERT_GENE = `Approved symbol`) %>%
