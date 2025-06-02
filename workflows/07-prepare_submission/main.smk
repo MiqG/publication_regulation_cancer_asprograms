@@ -23,6 +23,7 @@ rule all:
     input:
         # supplementary tables
         os.path.join(RESULTS_DIR,'prepare_submission','files','supplementary_tables'),
+        
         # intermediate files
         ## networks: exon, bulk, single-cell, combined
         os.path.join(RESULTS_DIR,'prepare_submission','files','intermediate_files','networks'),
@@ -72,7 +73,8 @@ rule all:
 rule supplementary_tables:
     input:
         # Identified cancer splicing programs
-        suptab01_cancer_splicing_programs = os.path.join(PROGRAM_DIR,'files','PANCAN','cancer_program.tsv.gz'),
+        suptab01_splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
+        suptab02_cancer_splicing_programs = os.path.join(PROGRAM_DIR,'files','PANCAN','cancer_program.tsv.gz'),
     output:
         directory(os.path.join(RESULTS_DIR,'prepare_submission','files','supplementary_tables'))
     run:
