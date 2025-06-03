@@ -61,6 +61,9 @@ rule all:
         ## define cancer program
         os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz'),
         
+        ## compute program activity differences across cancers
+        os.path.join(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz'),
+        
         # figures
         os.path.join(RESULTS_DIR,"figures","cancer_splicing_program")
         
@@ -213,7 +216,7 @@ rule define_cancer_program:
             cancer_program.groupby("regulator")["n"].idxmax()
         ].copy()
         
-        # add gene annotations
+        # add gene annotations s
         gene_annotation = gene_annotation.rename(
             columns={"Approved symbol":"GENE", "Ensembl gene ID":"ENSEMBL"}
         )
@@ -230,6 +233,44 @@ rule define_cancer_program:
         print("Done!")
         
 
+rule compute_program_activity_differences:
+    input:
+        activity = [os.path.join(RESULTS_DIR,"files","protein_activity","{cancer}-{sample}-EX.tsv.gz").format(cancer=canc, sample=samp) for canc in CANCER_TYPES_PTSTN for samp in ["PrimaryTumor_vs_SolidTissueNormal"]],
+        cancer_program = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+    output:
+        program_activity_diff = os.path.join(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz')
+    run:
+        import os
+        import pandas as pd
+        
+        activity_files = input.activity
+        cancer_program = pd.read_table(input.cancer_program)
+        sf_onco = cancer_program.loc[cancer_program["driver_type"]=="Oncogenic","ENSEMBL"]
+        sf_ts = cancer_program.loc[cancer_program["driver_type"]=="Tumor suppressor","ENSEMBL"]
+        
+        program_activity_diff = []
+        for f in activity_files:
+            activity = pd.read_table(f, index_col=0)
+            
+            cancer_type = os.path.basename(f).split("-")[0]
+            comparison = os.path.basename(f).split("-")[1]
+            feature = os.path.basename(f).split("-")[2].replace(".tsv.gz","")
+            
+            # compute median activity across each driver type for each sample
+            median_onco = activity.loc[activity.index.isin(sf_onco)].median(axis=0) 
+            median_ts = activity.loc[activity.index.isin(sf_ts)].median(axis=0)
+            diff = (median_onco - median_ts).reset_index(name="activity_diff")
+            diff["cancer_type"] = cancer_type
+            diff["comparison"] = comparison
+            diff["feature"] = feature
+            
+            program_activity_diff.append(diff)
+        program_activity_diff = pd.concat(program_activity_diff)
+            
+        program_activity_diff.to_csv(output.program_activity_diff, **SAVE_PARAMS)
+        
+        print("Done!")
+        
 rule figures_cancer_splicing_program:
     input:
         diff_activity = os.path.join(RESULTS_DIR,'files','PANCAN','protein_activity-mannwhitneyu-PrimaryTumor_vs_SolidTissueNormal.tsv.gz'),

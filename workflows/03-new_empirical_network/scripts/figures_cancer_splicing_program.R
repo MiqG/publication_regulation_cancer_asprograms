@@ -3,6 +3,8 @@ require(tidyverse)
 require(ggpubr)
 require(cowplot)
 require(extrafont)
+require(survival)
+require(survminer)
 
 # variables
 THRESH_FDR = 0.05
@@ -32,6 +34,8 @@ PAL_DRIVER_TYPE = c(
 # splicing_factors_file = file.path(SUPPORT_DIR,"splicing_factors","splicing_factors.tsv")
 # splicing_factors_file = file.path(RESULTS_DIR,"figures","empirical_psi_networks","figdata","eda","splicing_factors.tsv.gz")
 # gene_annotation_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+# program_activity_diff_file = file.path(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz')
+# metadata_file = file.path(RAW_DIR,'UCSCXena','TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.tsv')
 # figs_dir = file.path(RESULTS_DIR,"figures","cancer_splicing_program")
 
 ##### FUNCTIONS #####
@@ -107,9 +111,92 @@ plot_driver_selection = function(driver_activity){
     return(plts)
 }
 
-make_plots = function(diff_activity){
+plot_survival_analysis = function(program_activity_diff, survival_analysis){
+    plts = list()
+    
+    # distributions of program activity differences in primary tumors
+    X = program_activity_diff
+    plts[["survival_analysis-cancer_vs_activity_diff-violin"]] = X %>%
+        ggviolin(x="cancer_type", y="activity_diff", color=NA, fill="cancer_type", trim=TRUE) +
+        geom_boxplot(outlier.shape=NA, width=0.1, fill=NA) +
+        geom_hline(yintercept=0, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        geom_text(
+            aes(y=-2.5, label=label),
+            . %>% count(cancer_type) %>% mutate(label=sprintf("n=%s", n)),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        fill_palette(get_palette("Paired", 14)) +
+        theme_pubr(x.text.angle=45) +
+        guides(fill="none") +
+        labs(x="Cancer Type", y="Median Program Act. Diff.")
+    
+    # associations with survival
+    X = survival_analysis
+    plts[["survival_analysis-cancer_vs_coxph-bar"]] = X %>%
+        mutate(
+            surv_metric = factor(surv_metric, levels=c("OS","PFI","DFI"))
+        ) %>%
+        ggbarplot(x="cancer_type", y="coxph_coef", color=NA, fill="cancer_type") +
+        geom_text(
+            aes(y=1.5, label=label),
+            . %>% mutate(label=sprintf("p=%s", scales::pvalue(coxph_pvalue))),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        fill_palette(get_palette("Paired", 14)) +
+        facet_wrap(~surv_metric, nrow=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        guides(fill="none") +
+        labs(x="Cancer Type", y="Cox PH Coeff.") +
+        coord_flip()
+    
+    # kaplan meier for interesting cases?
+    ## KICH
+    cancer_type_oi = "KICH"
+    surv_metric = "OS"
+    surv_time_col = sprintf("%s.time", surv_metric)
+    surv_event_col = surv_metric
+    vars_formula = "activity_diff"
+    result_cut = surv_cutpoint(
+        program_activity_diff %>% filter(cancer_type==cancer_type_oi), 
+        time=surv_time_col, event=surv_event_col, variables="activity_diff"
+    )
+    result_cat = surv_categorize(result_cut) %>% data.frame()
+    fit = surv_fit(
+        as.formula(sprintf("Surv(%s, %s) ~ %s", surv_time_col, surv_event_col, vars_formula)), 
+        data=result_cat
+    )
+    plts[["survival_analysis-KICH-km"]] = ggsurvplot(
+        fit, data=result_cat, 
+        risk.table=TRUE, conf.int=TRUE, pval=TRUE, pval.size=FONT_SIZE+2,
+        risk.table.fontsize=FONT_SIZE+2, risk.table.font.family=FONT_FAMILY,
+        palette = get_palette("Dark2", 2)
+    )
+    
+    ## BRCA
+    cancer_type_oi = "BRCA"
+    result_cut = surv_cutpoint(
+        program_activity_diff %>% filter(cancer_type==cancer_type_oi), 
+        time=surv_time_col, event=surv_event_col, variables="activity_diff"
+    )
+    result_cat = surv_categorize(result_cut) %>% data.frame()
+    fit = surv_fit(
+        as.formula(sprintf("Surv(%s, %s) ~ %s", surv_time_col, surv_event_col, vars_formula)), 
+        data=result_cat
+    )
+    plts[["survival_analysis-BRCA-km"]] = ggsurvplot(
+        fit, data=result_cat, 
+        risk.table=TRUE, conf.int=TRUE, pval=TRUE, pval.size=FONT_SIZE+2,
+        risk.table.fontsize=FONT_SIZE+2, risk.table.font.family=FONT_FAMILY,
+        palette = get_palette("Dark2", 2)
+    )
+    
+    return(plts)
+}
+
+make_plots = function(diff_activity, program_activity_diff, survival_analysis){
     plts = list(
-        plot_driver_selection(diff_activity)
+        plot_driver_selection(diff_activity),
+        plot_survival_analysis(program_activity_diff, survival_analysis)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -125,6 +212,9 @@ make_figdata = function(diff_activity){
     return(figdata)
 }
 
+grid.draw.ggsurvplot <- function(x){
+  survminer:::print.ggsurvplot(x, newpage = FALSE)
+}
 
 save_plt = function(plts, plt_name, extension='.pdf', 
                     directory='', dpi=350, format=TRUE,
@@ -144,6 +234,11 @@ save_plt = function(plts, plt_name, extension='.pdf',
 save_plots = function(plts, figs_dir){
     # cancer splicing program definition
     save_plt(plts, "driver_selection-n_signif_vs_driver_type-activity-bar", '.pdf', figs_dir, width=5, height=7)
+    
+    save_plt(plts, "survival_analysis-cancer_vs_activity_diff-violin", '.pdf', figs_dir, width=10, height=5)
+    save_plt(plts, "survival_analysis-cancer_vs_coxph-bar", '.pdf', figs_dir, width=12, height=5)
+    save_plt(plts, "survival_analysis-KICH-km", '.pdf', figs_dir, width=10, height=13, format=FALSE)
+    save_plt(plts, "survival_analysis-BRCA-km", '.pdf', figs_dir, width=10, height=13, format=FALSE)
 }
 
 
@@ -196,6 +291,8 @@ main = function(){
             GENE = `Approved symbol`,
             ENSEMBL = `Ensembl gene ID`
         )
+    program_activity_diff = read_tsv(program_activity_diff_file)
+    metadata = read_tsv(metadata_file)
     
     # prep
     only_new_network = splicing_factors %>% filter(!in_viper_alone & in_new_w_viper) %>% pull(ENSEMBL)
@@ -219,13 +316,52 @@ main = function(){
                 `condition_a-median`>0, "Oncogenic", "Tumor suppressor"
             )
         ) %>%
-        filter(is_significant)    
+        filter(is_significant)
+    
+    # survival analysis
+    program_activity_diff = program_activity_diff %>%
+        left_join(
+            metadata %>% distinct(sample, OS.time, OS, PFI.time, PFI, DFI.time, DFI), 
+            by=c("index"="sample")
+        )
+    
+    surv_metrics = c("OS","PFI","DFI")
+    survival_analysis = lapply(surv_metrics, function(surv_metric){
+        surv_time_col = sprintf("%s.time", surv_metric)
+        surv_event_col = surv_metric
+        vars_formula = "activity_diff"
+        cancer_types = program_activity_diff %>% pull(cancer_type) %>% unique()
+        result = lapply(cancer_types, function(cancer_type_oi){
+            
+            df = program_activity_diff %>% 
+                filter(cancer_type==cancer_type_oi) %>% 
+                distinct(.data[[surv_time_col]], .data[[surv_event_col]], activity_diff) %>%
+                drop_na()
+            
+            fit_coxph = survival::coxph(
+                as.formula(sprintf("Surv(%s, %s) ~ %s", surv_time_col, surv_event_col, vars_formula)), 
+                data=df
+            )
+
+            result_surv = data.frame(
+                n_obs = df %>% nrow(),
+                surv_metric = surv_metric,
+                cancer_type = cancer_type_oi,
+                coxph_coef = fit_coxph[["coefficients"]][["activity_diff"]],
+                coxph_pvalue = summary(fit_coxph)[["waldtest"]][["pvalue"]]
+            )
+
+            return(result_surv)
+        }) %>% bind_rows()
+        
+        return(result)
+    }) %>% bind_rows()
     
     # plot
-    plts = make_plots(driver_activity)
+    plts = make_plots(driver_activity, program_activity_diff, survival_analysis)
     
     # make figdata
-    figdata = make_figdata(driver_activity)
+    figdata = make_figdata(driver_activity, program_activity_diff, survival_analysis)
 
     # save
     save_plots(plts, figs_dir)
