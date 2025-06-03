@@ -36,6 +36,7 @@ PAL_DRIVER_TYPE = c(
 # gene_annotation_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
 # program_activity_diff_file = file.path(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz')
 # metadata_file = file.path(RAW_DIR,'UCSCXena','TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.tsv')
+# mutations_file = file.path(RAW_DIR,'UCSCXena','TCGA','snv','mc3.v0.2.8.PUBLIC.xena.gz')
 # figs_dir = file.path(RESULTS_DIR,"figures","cancer_splicing_program")
 
 ##### FUNCTIONS #####
@@ -193,10 +194,115 @@ plot_survival_analysis = function(program_activity_diff, survival_analysis){
     return(plts)
 }
 
-make_plots = function(diff_activity, program_activity_diff, survival_analysis){
+
+plot_mutation_analysis = function(program_activity_diff, mutation_analysis){
+    plts = list()
+    
+    # distributions on samples with a mutated splicing factor vs WT
+    X = program_activity_diff %>%
+        distinct(index, activity_diff, cancer_type, sf_mutated)
+    
+    plts[["mutation_analysis-sf_mutated-overall-violin"]] = X %>%
+        ggviolin(x="sf_mutated", y="activity_diff", fill="sf_mutated", color=NA, trim=TRUE) +
+        geom_boxplot(outlier.shape=NA, width=0.1, fill=NA) +
+        geom_hline(yintercept=0, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        fill_palette("Dark2") +
+        stat_compare_means(
+            method="wilcox", size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        geom_text(
+            aes(y=-2.3, label=label),
+            . %>% count(sf_mutated) %>% mutate(label=sprintf("n=%s", n)),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        labs(x="SF(s) with Non-silent Mutation", y="Median Program Act. Diff.")
+    
+    plts[["mutation_analysis-sf_mutated-by_cancer_type-violin"]] = X %>%
+        ggplot(aes(x=cancer_type, y=activity_diff, group=interaction(cancer_type, sf_mutated))) +
+        geom_violin(aes(fill=sf_mutated), color=NA, trim=TRUE, position=position_dodge(0.9)) +
+        geom_boxplot(outlier.shape=NA, width=0.1, fill=NA, position=position_dodge(0.9)) +
+        geom_hline(yintercept=0, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        fill_palette("Dark2") +
+        stat_compare_means(
+            method="wilcox", label="p.format", size=FONT_SIZE, family=FONT_FAMILY, angle=45
+        ) +
+        geom_text(
+            aes(y=-2.3, label=label),
+            . %>% count(cancer_type, sf_mutated) %>% mutate(label=sprintf("n=%s", n)),
+            size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9)
+        ) +
+        theme_pubr(x.text.angle=45) +
+        labs(x="Cancer Cohort", y="Median Program Act. Diff.", fill="SF(s) with Non-silent Mutation")
+    
+    
+    # distributions of program activity differences between types of mutations
+    X = mutation_analysis %>%
+        distinct(sample, effect, activity_diff, gene, cancer_type) %>%
+        drop_na()
+    
+    effects_oi = X %>% 
+        count(effect, gene) %>%
+        filter(n>=5) %>%
+        pull(effect) %>%
+        unique()
+    
+    cancers_oi = X %>% 
+        count(cancer_type, effect, gene) %>%
+        filter(n>=10) %>%
+        pull(effect) %>%
+        unique()
+    
+    # distributions of program activity differences
+    ## overall - by mutation type and gene
+    plts[["mutation_analysis-effects-overall-violin"]] = X %>%
+        filter(effect%in%effects_oi) %>%
+        ggviolin(x="effect", y="activity_diff", fill="gene", color=NA, trim=TRUE) +
+        geom_boxplot(outlier.shape=NA, width=0.1, fill=NA) +
+        geom_hline(yintercept=0, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        stat_compare_means(
+            ref.group="Silent", method="wilcox", label="p.format", size=FONT_SIZE, family=FONT_FAMILY, angle=45
+        ) +
+        geom_text(
+            aes(y=-1, label=label),
+            . %>% count(effect, gene) %>% mutate(label=sprintf("n=%s", n)),
+            size=FONT_SIZE, family=FONT_FAMILY
+        ) +
+        facet_wrap(~gene, nrow=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        theme_pubr(x.text.angle=45) +
+        guides(fill="none") +
+        labs(x="Effect Type", y="Median Program Act. Diff.")
+    
+    ## by cancer type and mutation type and gene
+    plts[["mutation_analysis-effects-by_cancer-violin"]] = X %>%
+        filter(effect%in%c("Silent","Missense_Mutation")) %>%
+        ggplot(aes(x=cancer_type, y=activity_diff, group=interaction(cancer_type, effect))) +
+        geom_violin(aes(fill=effect), color=NA, trim=TRUE, position=position_dodge(0.9)) +
+        geom_boxplot(outlier.shape=NA, width=0.1, fill=NA, position=position_dodge(0.9)) +
+        fill_palette(get_palette("Paired", 14)) +
+        geom_hline(yintercept=0, linetype="dashed", color="black", linewidth=LINE_SIZE) +
+        stat_compare_means(
+            method="wilcox", label="p.format", size=FONT_SIZE, family=FONT_FAMILY, angle=45
+        ) +
+        geom_text(
+            aes(y=-1, label=label),
+            . %>% count(effect, gene, cancer_type) %>% mutate(label=sprintf("n=%s", n)),
+            size=FONT_SIZE, family=FONT_FAMILY, position=position_dodge(0.9)
+        ) +
+        facet_wrap(~gene, nrow=2) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        theme_pubr(x.text.angle=45) +
+        labs(x="Effect Type", y="Median Program Act. Diff.")
+    
+    return(plts)
+}
+
+
+make_plots = function(diff_activity, program_activity_diff, survival_analysis, mutation_analysis){
     plts = list(
         plot_driver_selection(diff_activity),
-        plot_survival_analysis(program_activity_diff, survival_analysis)
+        plot_survival_analysis(program_activity_diff, survival_analysis),
+        plot_mutation_analysis(program_activity_diff, mutation_analysis)
     )
     plts = do.call(c,plts)
     return(plts)
@@ -239,6 +345,9 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "survival_analysis-cancer_vs_coxph-bar", '.pdf', figs_dir, width=12, height=5)
     save_plt(plts, "survival_analysis-KICH-km", '.pdf', figs_dir, width=10, height=13, format=FALSE)
     save_plt(plts, "survival_analysis-BRCA-km", '.pdf', figs_dir, width=10, height=13, format=FALSE)
+
+    save_plt(plts, "mutation_analysis-sf_mutated-overall-violin", '.pdf', figs_dir, width=3, height=8)
+    save_plt(plts, "mutation_analysis-sf_mutated-by_cancer_type-violin", '.pdf', figs_dir, width=13, height=8)
 }
 
 
@@ -293,6 +402,7 @@ main = function(){
         )
     program_activity_diff = read_tsv(program_activity_diff_file)
     metadata = read_tsv(metadata_file)
+    mutations = read_tsv(mutations_file)
     
     # prep
     only_new_network = splicing_factors %>% filter(!in_viper_alone & in_new_w_viper) %>% pull(ENSEMBL)
@@ -357,11 +467,27 @@ main = function(){
         return(result)
     }) %>% bind_rows()
     
+    # mutation analysis
+    genes_oi = c("SF3B1","U2AF1","RNF213","SRRM2")
+    mutation_analysis = mutations %>%
+        filter(gene %in% genes_oi) %>%
+        left_join(program_activity_diff, by=c("sample"="index"))
+    
+    program_activity_diff = program_activity_diff %>%
+        left_join(
+            mutations %>% 
+                filter((effect!="Silent") & (gene%in%splicing_factors[["GENE"]])) %>%
+                distinct(sample) %>%
+                mutate(sf_mutated = TRUE),
+            by = c("index"="sample")
+        ) %>%
+        mutate(sf_mutated = replace_na(sf_mutated, FALSE))
+    
     # plot
-    plts = make_plots(driver_activity, program_activity_diff, survival_analysis)
+    plts = make_plots(driver_activity, program_activity_diff, survival_analysis, mutation_analysis, mutation_analysis)
     
     # make figdata
-    figdata = make_figdata(driver_activity, program_activity_diff, survival_analysis)
+    figdata = make_figdata(driver_activity, program_activity_diff, survival_analysis, mutation_analysis, mutation_analysis)
 
     # save
     save_plots(plts, figs_dir)
