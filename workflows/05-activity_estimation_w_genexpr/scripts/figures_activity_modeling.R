@@ -21,10 +21,11 @@ FONT_FAMILY = "Arial"
 # SUPPORT_DIR = file.path(ROOT,"support")
 # RESULTS_DIR = file.path(ROOT,"results","activity_estimation_w_genexpr")
 # losses_file = file.path(RESULTS_DIR,"files","model_sf_activity","losses-merged.tsv.gz")
+# program_correlations_file = file.path(RESULTS_DIR,"files","model_sf_activity","program_correlations-CCLE-merged.tsv.gz")
 # figs_dir = file.path(RESULTS_DIR,"figures","activity_modeling")
 
 ##### FUNCTIONS #####
-plot_losses = function(losses){
+plot_losses = function(losses, program_correlations){
     plts = list()
     
     X = losses %>%
@@ -60,22 +61,33 @@ plot_losses = function(losses){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         labs(x="Network & Adjustment", y="Pearson Corr. Coef.")
     
+    plts[["losses-model_type_vs_omic_regulon_vs_program_pearson-box"]] = program_correlations %>%
+        ggplot(aes(x=omic_regulon, y=pearson_correlation, group=interaction(omic_regulon, data_split))) +
+        geom_boxplot(aes(color=data_split), fill=NA, outlier.shape=NA, position=position_dodge(0.9)) +
+        geom_jitter(aes(color=data_split), size=0.25, fill=NA, position=position_jitterdodge(jitter.width=0.5, dodge.width=0.9)) +
+        color_palette("Paired") +
+        theme_pubr() +
+        facet_wrap(~model_type) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(x="Network & Adjustment", y="Pearson Corr. Coef.")
+    
     return(plts)
 }
 
-make_plots = function(losses){
+make_plots = function(losses, program_correlations){
     plts = list(
-        plot_losses(losses)
+        plot_losses(losses, program_correlations)
     )
     plts = do.call(c,plts)
     return(plts)
 }
 
 
-make_figdata = function(losses){
+make_figdata = function(losses, program_correlations){
     figdata = list(
         "activity_modeling" = list(
-            "losses" = losses
+            "losses" = losses,
+            "program_correlations" = program_correlations
         )
     )
     return(figdata)
@@ -101,6 +113,7 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "losses-epoch_vs_loss-line", '.pdf', figs_dir, width=10, height=10)
     save_plt(plts, "losses-epoch_vs_pearson-line", '.pdf', figs_dir, width=10, height=10)
     save_plt(plts, "losses-last_epoch_vs_pearson_vs_omic_regulon-box", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "losses-model_type_vs_omic_regulon_vs_program_pearson-box", '.pdf', figs_dir, width=7, height=5)
 }
 
 
@@ -141,12 +154,13 @@ main = function(){
     
     # load
     losses = read_tsv(losses_file)
+    program_correlations = read_tsv(program_correlations_file)
     
     # plot
-    plts = make_plots(losses)
+    plts = make_plots(losses, program_correlations)
     
     # make figdata
-    figdata = make_figdata(losses)
+    figdata = make_figdata(losses, program_correlations)
     
     # save
     save_plots(plts, figs_dir)

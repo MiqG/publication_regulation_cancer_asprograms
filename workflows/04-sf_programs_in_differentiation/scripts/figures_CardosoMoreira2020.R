@@ -182,7 +182,6 @@ plot_cancer_programs = function(protein_activity, genexpr){
         theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         color_palette(get_palette("Dark2", length(TISSUES))) +
         geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
-        stat_cor(aes(y=0.5, color=tissue), method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
         stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
         labs(x="log10(Days Post Conception + 1) Binned", y="Protein Activity Diff.", color="Tissue")
     
