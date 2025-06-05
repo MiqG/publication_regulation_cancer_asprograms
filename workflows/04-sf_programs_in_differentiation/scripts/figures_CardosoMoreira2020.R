@@ -162,6 +162,29 @@ plot_cancer_programs = function(protein_activity, genexpr){
         labs(x="log10(Days Post Conception + 1) Binned", y="Protein Activity Diff.", color="Tissue")
     
     
+    plts[["cancer_programs-differentiation_vs_activity_diff-faceted-line"]] = X %>%
+        mutate(activity = ifelse(driver_type=="Tumor suppressor", -activity, activity)) %>%
+        group_by(tissue) %>%
+        mutate(time = as.numeric(cut(log10(time+1), breaks=10))) %>%
+        ungroup() %>%
+        group_by(tissue, study_accession, time, driver_type) %>%
+        summarize(activity = median(activity)) %>%
+        ungroup() %>%
+        group_by(tissue, study_accession, time) %>%
+        summarize(activity_diff = sum(activity)) %>%
+        ungroup() %>%
+        mutate(tissue = factor(tissue, levels=TISSUES)) %>%
+        ggline(
+            x="time", y="activity_diff", color="tissue", numeric.x.axis=TRUE,
+            size=LINE_SIZE, linetype="solid", point.size=0.05
+        ) +
+        facet_wrap(~tissue) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        color_palette(get_palette("Dark2", length(TISSUES))) +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
+        stat_cor(aes(y=0.5, color=tissue), method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
+        labs(x="log10(Days Post Conception + 1) Binned", y="Protein Activity Diff.", color="Tissue")
     
     return(plts)
 }
@@ -207,7 +230,7 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "cancer_programs-tissue_vs_differentiation-violin",'.pdf', figs_dir, width=4, height=5)
     save_plt(plts, "cancer_programs-differentiation_vs_n_samples-bar",'.pdf', figs_dir, width=8, height=4.5)
     save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-line",'.pdf', figs_dir, width=8, height=6)
-    
+    save_plt(plts, "cancer_programs-differentiation_vs_activity_diff-faceted-line",'.pdf', figs_dir, width=12, height=12)
 }
 
 save_figdata = function(figdata, dir){

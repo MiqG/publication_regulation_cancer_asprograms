@@ -147,6 +147,20 @@ plot_corrs = function(corrs, experiments, ontologies){
         guides(fill="none") +
         labs(x="Dataset", y="Pearson Correlation")
     
+    plts[["corrs-danielsson_vs_hodis-scatter"]] = X %>%
+        filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
+        pivot_wider(id_col="Description", names_from="dataset", values_from="correlation_diff_activity") %>%
+        ggscatter(x="Danielsson2013-fibroblasts", y="Hodis2022-invitro_eng_melanoc", color="black", alpha=0.5) +
+        geom_abline(intercept=0, slope=1, linetype="dashed", linewidth=LINE_SIZE) +
+        stat_cor(method="pearson", size=FONT_SIZE, family=FONT_FAMILY) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY) +
+        theme(aspect.ratio=1, strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        labs(
+            subtitle="MSigDB Hallmark Pathways NES vs Median Program Act. Diff.",
+            x="Danielsson2013's Fibroblasts | n=3",
+            y="Hodis2022's Engineered Melanocytes | n=8"
+        )
+    
     x = X %>%
         group_by(Description) %>%
         filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
@@ -482,6 +496,7 @@ save_plt = function(plts, plt_name, extension='.pdf',
 
 save_plots = function(plts, figs_dir){
     save_plt(plts, "corrs-nes_vs_activity_diff-violin", '.pdf', figs_dir, width=3, height=4)
+    save_plt(plts, "corrs-danielsson_vs_hodis-scatter", '.pdf', figs_dir, width=5, height=5)
     save_plt(plts, "corrs-bulk_vs_singlecell-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-pertseq-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-hallmark_sets_overlaps-upset", '.pdf', figs_dir, width=14, height=10)
