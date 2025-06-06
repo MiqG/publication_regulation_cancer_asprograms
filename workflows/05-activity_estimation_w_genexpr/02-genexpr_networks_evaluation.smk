@@ -11,12 +11,12 @@ RESULTS_DIR = os.path.join(ROOT,"results","activity_estimation_w_genexpr")
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
 
 PERT_SPLICING_FILES = {
-    # "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_ena.tsv.gz'),
-    # "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
-    # "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_k562.tsv.gz'),
-    # "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_hepg2.tsv.gz'),
-    # "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_k562.tsv.gz'),
-    # "Rogalska2024": os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
+    "ENASFS": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_ena.tsv.gz'),
+    "ENCOREKD_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_hepg2.tsv.gz'),
+    "ENCOREKD_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encorekd_k562.tsv.gz'),
+    "ENCOREKO_HepG2": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_hepg2.tsv.gz'),
+    "ENCOREKO_K562": os.path.join(RAW_DIR,'viper_splicing_intermediate_files','benchmark','signatures_psi_encoreko_k562.tsv.gz'),
+    "Rogalska2024": os.path.join(PREP_DIR,'delta_psi','Rogalska2024-EX.tsv.gz')
 }
 
 PERT_GENEXPR_FILES = {
@@ -151,17 +151,17 @@ rule combine_evaluations:
         print("Done!")
       
     
-# rule figures_network_evaluation:
-#     input:
-#         evaluation = os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz"),
-#         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
-#     output:
-#         directory(os.path.join(RESULTS_DIR,"figures","network_evaluation"))
-#     shell:
-#         """
-#         Rscript scripts/figures_network_evaluation.R \
-#                     --evaluation_file={input.evaluation} \
-#                     --splicing_factors_file={input.splicing_factors} \
-#                     --figs_dir={output}
-#         """
+rule figures_network_evaluation:
+    input:
+        evaluation = os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz"),
+        splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv")
+    output:
+        directory(os.path.join(RESULTS_DIR,"figures","network_evaluation"))
+    shell:
+        """
+        Rscript scripts/figures_network_evaluation.R \
+                    --evaluation_file={input.evaluation} \
+                    --splicing_factors_file={input.splicing_factors} \
+                    --figs_dir={output}
+        """
        
