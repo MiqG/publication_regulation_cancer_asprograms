@@ -27,6 +27,7 @@ load_ontologies = function(msigdb_dir, cosmic_genes_file){
     ontologies = list(
         "reactome" = read.gmt(file.path(msigdb_dir,"c2.cp.reactome.v7.4.symbols.gmt")),
         "hallmarks" = read.gmt(file.path(msigdb_dir,"h.all.v7.4.symbols.gmt")),
+        "hallmarks_nomyc" = read.gmt(file.path(msigdb_dir,"h.all.v7.4.symbols.gmt")), # ugly workaround
         "oncogenic_signatures" = read.gmt(file.path(msigdb_dir,"c6.all.v7.4.symbols.gmt")),
         "GO_BP" = read.gmt(file.path(msigdb_dir,"c5.go.bp.v7.4.symbols.gmt")),
         "GO_CC" = read.gmt(file.path(msigdb_dir,"c5.go.cc.v7.4.symbols.gmt"))
@@ -116,6 +117,12 @@ main = function(){
     
     ## ontologies
     ontology = ontologies[[ontology_oi]]
+    if (ontology_oi == "hallmarks_nomyc"){
+        # ugly workaround
+        genes_todrop = ontology %>% filter(str_detect(term,"_MYC_")) %>% pull(gene)
+        ontology = ontology %>%
+            filter(!(gene %in% genes_todrop))
+    }
     
     ## translate ontology
     if (!is.null(gene_info_file)){

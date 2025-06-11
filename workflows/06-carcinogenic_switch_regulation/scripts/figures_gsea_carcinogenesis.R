@@ -32,6 +32,19 @@ LABS_HALLMARKS = c(
     'HALLMARK_MYC_TARGETS_V2'
 )
 
+LABS_HALLMARKS_NOMYC = c(
+    'HALLMARK_G2M_CHECKPOINT',
+    'HALLMARK_E2F_TARGETS',
+    'HALLMARK_SPERMATOGENESIS',
+    'HALLMARK_COAGULATION',
+    'HALLMARK_UV_RESPONSE_DN',
+    'HALLMARK_IL2_STAT5_SIGNALING',
+    'HALLMARK_APOPTOSIS',
+    'HALLMARK_IL6_JAK_STAT3_SIGNALING',
+    'HALLMARK_COMPLEMENT',
+    'HALLMARK_INFLAMMATORY_RESPONSE'
+)
+
 TISSUES = c(
     'Heart',
     'Forebrain',
@@ -88,15 +101,18 @@ PAL_DATASETS = c(
 # carcinogenesis_bulk_genexpr_file = file.path(VIPER_SPLICING_DIR,'genexpr_tpm','tumorigenesis.tsv.gz')
 # carcinogenesis_bulk_activity_file = file.path(CARCINOGENESIS_BULK_DIR,"figures","carcinogenesis","figdata","carcinogenesis","protein_activity.tsv.gz")
 # carcinogenesis_bulk_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz")
+# carcinogenesis_bulk_hallmarks_nomyc_file = file.path(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks_nomyc.tsv.gz")
 # carcinogenesis_bulk_metadata_file = file.path(VIPER_SPLICING_DIR,"metadata","tumorigenesis.tsv.gz")
 
 # carcinogenesis_singlecell_genexpr_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-pseudobulk.tsv.gz")
 # carcinogenesis_singlecell_activity_file = file.path(CARCINOGENESIS_SC_DIR,"figures","eval_carcinogenesis","figdata","eval_carcinogenesis","protein_activity_singlecell.tsv.gz")
 # carcinogenesis_singlecell_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks.tsv.gz")
+# carcinogenesis_singlecell_hallmarks_nomyc_file = file.path(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks_nomyc.tsv.gz")
 # carcinogenesis_singlecell_metadata_file = file.path(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz")
 
 # pertseq_activity_file = file.path(RESULTS_DIR,"figures","upstream_regulators","figdata","upstream_regulators","cancer_program_activity.tsv.gz")
 # pertseq_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz")
+# pertseq_hallmarks_nomyc_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks_nomyc.tsv.gz")
 # pertseq_genexpr_file = file.path(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz")
 
 # urbanski_metadata_file = file.path(PREP_DIR,"metadata","Urbanski2022.tsv.gz")
@@ -104,9 +120,11 @@ PAL_DATASETS = c(
 # urbanski_ex_file = file.path(PREP_DIR,'event_psi',"Urbanski2022-EX.tsv.gz")
 # urbanski_activity_file = file.path(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz")
 # urbanski_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks.tsv.gz")
+# urbanski_hallmarks_nomyc_file = file.path(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks_nomyc.tsv.gz")
 
 # cardoso_metadata_file = file.path(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","CardosoMoreira2020.tsv.gz")
 # cardoso_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","CardosoMoreira2020-hallmarks.tsv.gz")
+# cardoso_hallmarks_nomyc_file = file.path(RESULTS_DIR,"files","gsea","CardosoMoreira2020-hallmarks_nomyc.tsv.gz")
 
 # msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
 # chea_file = file.path(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz")
@@ -161,6 +179,7 @@ plot_corrs = function(corrs, experiments, ontologies){
             y="Hodis2022's Engineered Melanocytes | n=8"
         )
     
+    # REGULAR
     x = X %>%
         group_by(Description) %>%
         filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
@@ -176,33 +195,39 @@ plot_corrs = function(corrs, experiments, ontologies){
         coord_flip()
     
     plts[["corrs-pertseq-bar"]] = X %>%
-        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% LABS_HALLMARKS) %>%
         mutate(Description = factor(Description, levels=LABS_HALLMARKS)) %>%
         ggbarplot(x="Description", y="correlation_diff_activity", color=NA, fill="dataset", 
                   palette=PAL_DATASETS, position=position_dodge(0.9)) +
         labs(x="Top Correlating Hallmark", y="Pearson Correlation", fill="") +
         coord_flip()
     
-    # Upset plot showing the overlaps between shortlisted pathways
-    onto_list = ontologies[["hallmarks"]] %>%
-        filter(term %in% x[["Description"]]) %>%
-        mutate(term = as.character(term)) %>%
-        with(., split(gene, term))
-    m = onto_list %>% 
-        list_to_matrix() %>% 
-        make_comb_mat()
-    plts[["corrs-hallmark_sets_overlaps-upset"]] = m %>%
-        UpSet(comb_order = order(comb_size(m)), 
-              comb_col = PAL_DARK,
-              top_annotation = upset_top_annotation(m, gp = gpar(fill = PAL_DARK, col=NA)),
-              right_annotation = upset_right_annotation(m, gp = gpar(fill = PAL_DARK, col=NA))) %>%
-            draw() %>%
-            grid.grabExpr() %>%
-            as.ggplot()
+    # NO MYC
+    x = X %>%
+        group_by(Description) %>%
+        filter(dataset %in% c("Danielsson2013-fibroblasts","Hodis2022-invitro_eng_melanoc")) %>%
+        mutate(avg_corr = mean(correlation_diff_activity_nomyc)) %>%
+        ungroup() %>%
+        slice_max(abs(avg_corr), n=20) %>%
+        mutate(Description = fct_reorder(Description, avg_corr))
+    
+    plts[["corrs-bulk_vs_singlecell_nomyc-bar"]] = x %>%
+        ggbarplot(x="Description", y="correlation_diff_activity_nomyc", color=NA, fill="dataset", 
+                  palette=PAL_DATASETS, position=position_dodge(0.9)) +
+        labs(x="Top Correlating Hallmark (w/o MYC Genes)", y="Pearson Correlation", fill="") +
+        coord_flip()
+    
+    plts[["corrs-pertseq_nomyc-bar"]] = X %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & (Description%in%LABS_HALLMARKS_NOMYC)) %>%
+        mutate(Description = factor(Description, levels=rev(LABS_HALLMARKS_NOMYC))) %>%
+        ggbarplot(x="Description", y="correlation_diff_activity_nomyc", color=NA, fill="dataset", 
+                  palette=PAL_DATASETS, position=position_dodge(0.9)) +
+        labs(x="Top Correlating Hallmark (w/o MYC Genes)", y="Pearson Correlation", fill="") +
+        coord_flip()
     
     # ranges of enrichments in perturb seq for selected pathways
     plts[["corrs-term_vs_nes-pertseq-violin"]] = experiments %>%
-        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% x[["Description"]]) %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% LABS_HALLMARKS) %>%
         mutate(Description = factor(Description, levels=LABS_HALLMARKS)) %>%
         distinct(Description, PERT_GENE, NES, enrichmentScore, dataset) %>%
         drop_na() %>%
@@ -215,6 +240,55 @@ plot_corrs = function(corrs, experiments, ontologies){
         guides(fill="none") +
         labs(x="Top Correlating Hallmark", y="Perturb-seq NES") +
         coord_flip()
+    
+    # correlations of NES for selected pathways
+    pathways_oi = c("HALLMARK_MYC_TARGETS_V2","HALLMARK_MYC_TARGETS_V1","HALLMARK_G2M_CHECKPOINT","HALLMARK_E2F_TARGETS","HALLMARK_SPERMATOGENESIS")
+    
+    corrmat = experiments %>%
+        filter(dataset=="ReplogleWeissman2022_rpe1" & Description %in% pathways_oi) %>%
+        mutate(Description = factor(Description, levels=LABS_HALLMARKS)) %>%
+        distinct(Description, PERT_GENE, NES, enrichmentScore, dataset) %>%
+        drop_na() %>% 
+        pivot_wider(id_cols="PERT_GENE", names_from="Description", values_from="NES") %>%
+        column_to_rownames("PERT_GENE") %>%
+        cor(use="pairwise.complete.obs", method="spearman") %>%
+        as.matrix()
+    
+    col_fun = circlize::colorRamp2(c(0.5, 1), c("white", "orange"))
+    
+    plts[["corrs-term_vs_nes_corr-pertseq-heatmap"]] = corrmat %>%
+        Heatmap(
+            col = col_fun,
+            name="Spearman Corr.",
+            row_names_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY),
+            column_names_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY),
+            heatmap_legend_param = list(legend_gp = gpar(fontsize=6, fontfamily=FONT_FAMILY)),
+            cluster_rows=TRUE,
+            cluster_columns=TRUE,
+            cell_fun = function(j, i, x, y, width, height, fill) {
+                grid.text(sprintf("%.2f", corrmat[i, j]), x, y, gp = gpar(fontsize = 6))
+            },
+        ) %>% 
+        draw() %>%
+        grid.grabExpr() %>%
+        as.ggplot()
+    
+    # Upset plot showing the overlaps between shortlisted pathways
+    onto_list = ontologies[["hallmarks"]] %>%
+        filter(term %in% pathways_oi) %>%
+        mutate(term = as.character(term)) %>%
+        with(., split(gene, term))
+    m = onto_list %>% 
+        list_to_matrix() %>% 
+        make_comb_mat()
+    plts[["corrs-hallmark_sets_overlaps-upset"]] = m %>%
+        UpSet(#comb_order = order(comb_size(m)), 
+              comb_col = PAL_DARK,
+              top_annotation = upset_top_annotation(m, gp = gpar(fill = PAL_DARK, col=NA)),
+              right_annotation = upset_right_annotation(m, gp = gpar(fill = PAL_DARK, col=NA))) %>%
+            draw() %>%
+            grid.grabExpr() %>%
+            as.ggplot()
     
     return(plts)
 }
@@ -499,6 +573,8 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "corrs-danielsson_vs_hodis-scatter", '.pdf', figs_dir, width=5, height=5)
     save_plt(plts, "corrs-bulk_vs_singlecell-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-pertseq-bar", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "corrs-bulk_vs_singlecell_nomyc-bar", '.pdf', figs_dir, width=7, height=5)
+    save_plt(plts, "corrs-pertseq_nomyc-bar", '.pdf', figs_dir, width=7, height=5)
     save_plt(plts, "corrs-hallmark_sets_overlaps-upset", '.pdf', figs_dir, width=14, height=10)
     save_plt(plts, "corrs-term_vs_nes-pertseq-violin", '.pdf', figs_dir, width=7, height=5)
 
@@ -598,14 +674,17 @@ main = function(){
     carcinogenesis_bulk_activity = read_tsv(carcinogenesis_bulk_activity_file)
     carcinogenesis_bulk_metadata = read_tsv(carcinogenesis_bulk_metadata_file)
     carcinogenesis_bulk_hallmarks = read_tsv(carcinogenesis_bulk_hallmarks_file)
+    carcinogenesis_bulk_hallmarks_nomyc = read_tsv(carcinogenesis_bulk_hallmarks_nomyc_file)
     
     carcinogenesis_singlecell_genexpr = read_tsv(carcinogenesis_singlecell_genexpr_file)
     carcinogenesis_singlecell_activity = read_tsv(carcinogenesis_singlecell_activity_file)
     carcinogenesis_singlecell_metadata = read_tsv(carcinogenesis_singlecell_metadata_file)
     carcinogenesis_singlecell_hallmarks = read_tsv(carcinogenesis_singlecell_hallmarks_file)
+    carcinogenesis_singlecell_hallmarks_nomyc = read_tsv(carcinogenesis_singlecell_hallmarks_nomyc_file)
     
     pertseq_activity = read_tsv(pertseq_activity_file)
     pertseq_hallmarks = read_tsv(pertseq_hallmarks_file)
+    pertseq_hallmarks_nomyc = read_tsv(pertseq_hallmarks_nomyc_file)
     pertseq_genexpr = read_tsv(pertseq_genexpr_file)
     
     ontologies = load_ontologies(msigdb_dir, chea_file)
@@ -619,19 +698,23 @@ main = function(){
     urbanski_ex = read_tsv(urbanski_ex_file)
     urbanski_activity = read_tsv(urbanski_activity_file)     
     urbanski_hallmarks = read_tsv(urbanski_hallmarks_file)
+    urbanski_hallmarks_nomyc = read_tsv(urbanski_hallmarks_nomyc_file)
     
     cardoso_metadata = read_tsv(cardoso_metadata_file)
     cardoso_hallmarks = read_tsv(cardoso_hallmarks_file)
+    cardoso_hallmarks_nomyc = read_tsv(cardoso_hallmarks_nomyc_file)
     
     # prep: combine activity and hallmarks
     ## bulk carcinogenesis
     carcinogenesis_bulk = carcinogenesis_bulk_hallmarks %>%
+        left_join(carcinogenesis_bulk_hallmarks_nomyc, by=c("Description","sampleID"), suffix=c("","_nomyc")) %>%
         left_join(carcinogenesis_bulk_metadata, by="sampleID") %>%
         filter(cell_line_name %in% LABS_BULK) %>%
         drop_na(NES) %>%
         group_by(Description, cell_line_name) %>%
         summarize(
             NES = mean(NES),
+            NES_nomyc = mean(NES_nomyc)
         ) %>%
         ungroup() %>%
         left_join(
@@ -653,12 +736,14 @@ main = function(){
     
     ## single cell carcinogenesis
     carcinogenesis_singlecell = carcinogenesis_singlecell_hallmarks %>%
+        left_join(carcinogenesis_singlecell_hallmarks_nomyc, by=c("Description","sampleID"), suffix=c("","_nomyc")) %>%
         left_join(carcinogenesis_singlecell_metadata, by=c("sampleID"="condition")) %>%
         filter(treatment %in% LABS_SC) %>%
         drop_na(NES) %>%
         group_by(Description, treatment, cell_type) %>%
         summarize(
             NES = mean(NES),
+            NES_nomyc = mean(NES_nomyc)
         ) %>%
         ungroup() %>%
         left_join(
@@ -681,7 +766,8 @@ main = function(){
     
     ## Perturb seq
     pertseq = pertseq_hallmarks %>%
-        drop_na(NES) %>%
+        left_join(pertseq_hallmarks_nomyc, by=c("Description","sampleID"), suffix=c("","_nomyc")) %>%
+        #drop_na(NES, NES_nomyc) %>%
         separate(sampleID, sep="___", into=c("study","cell_line","PERT_ENSEMBL","PERT_TYPE"), remove=FALSE) %>%
         left_join(
             pertseq_activity %>% filter(activity_type=="activity_rpe1"), 
@@ -696,6 +782,7 @@ main = function(){
         summarize(
             correlation_stage = cor(NES, as.numeric(cell_line_name), method="spearman"),
             correlation_diff_activity = cor(NES, activity_diff, method="pearson"),
+            correlation_diff_activity_nomyc = cor(NES_nomyc, activity_diff, method="pearson"),
             n_obs = n()
         ) %>%
         ungroup()
@@ -706,6 +793,7 @@ main = function(){
         summarize(
             correlation_stage = cor(NES, as.numeric(treatment), method="spearman"),
             correlation_diff_activity = cor(NES, activity_diff, method="pearson"),
+            correlation_diff_activity_nomyc = cor(NES_nomyc, activity_diff, method="pearson"),
             n_obs = n()
         ) %>%
         ungroup()
@@ -714,7 +802,8 @@ main = function(){
     corrs_pertseq = pertseq %>%
         group_by(dataset, Description) %>%
         summarize(
-            correlation_diff_activity = cor(NES, activity_diff, method="pearson"),
+            correlation_diff_activity = cor(NES, activity_diff, method="pearson", use="pairwise.complete.obs"),
+            correlation_diff_activity_nomyc = cor(NES_nomyc, activity_diff, method="pearson", use="pairwise.complete.obs"),
             n_obs = n()
         ) %>%
         ungroup() %>%
