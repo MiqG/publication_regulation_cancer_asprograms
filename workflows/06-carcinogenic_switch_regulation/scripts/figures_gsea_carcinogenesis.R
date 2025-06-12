@@ -491,14 +491,17 @@ plot_cardoso = function(cardoso_hallmarks){
         mutate(time = as.numeric(cut(log10(time_norm+1), breaks=10))) %>%
         ungroup() %>%
         group_by(tissue, time, Description) %>%
-        summarize(NES = median(NES)) %>%
+        summarize(
+            NES = median(NES, na.rm=TRUE),
+            NES_nomyc = median(NES_nomyc, na.rm=TRUE)
+        ) %>%
         ungroup() %>%
         mutate(
             tissue = factor(tissue, levels=TISSUES),
             Description = factor(Description, levels=rev(LABS_HALLMARKS))
         )
     
-    plts[["cardoso-differentiation_vs_hallmarks-line"]] = X  %>%
+    plts[["cardoso-differentiation_vs_hallmarks-line"]] = X %>%
         ggline(
             x="time", y="NES", color="tissue", numeric.x.axis=TRUE,
             size=LINE_SIZE, linetype="dashed", point.size=0.01
@@ -528,6 +531,25 @@ plot_cardoso = function(cardoso_hallmarks){
         theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
         scale_x_continuous(breaks = unique(X[["time"]])) +
         labs(x="log10(Days Post Conception + 1) Binned", y="Median NES", color="Tissue")
+    
+    hallmarks_oi = c(
+        'HALLMARK_G2M_CHECKPOINT',
+        'HALLMARK_E2F_TARGETS',
+        'HALLMARK_SPERMATOGENESIS'
+    )
+    plts[["cardoso-differentiation_vs_hallmarks-others_only-line"]] = X %>%
+        filter(Description %in% hallmarks_oi) %>%
+        ggscatter(
+            x="time", y="NES_nomyc", color="Description", size=0.1, alpha=0.5, position=position_jitter(0.1)
+        ) +
+        geom_smooth(aes(color=Description), linewidth=LINE_SIZE, linetype="dashed", fill="lightgrey") +
+        color_palette(get_palette("Dark2",5)[3:5]) +
+        geom_hline(yintercept=0, color="black", linetype="dashed", linewidth=LINE_SIZE) +
+        stat_cor(method="spearman", size=FONT_SIZE, family=FONT_FAMILY, label.y = -1.5) +
+        facet_wrap(~Description, nrow=1) +
+        theme(strip.text.x = element_text(size=6, family=FONT_FAMILY)) +
+        scale_x_continuous(breaks = unique(X[["time"]])) +
+        labs(x="log10(Days Post Conception + 1) Binned", y="Median NES (w/o MYC Genes)", color="Tissue")
     
     return(plts)
 }
@@ -590,7 +612,8 @@ save_plots = function(plts, figs_dir){
     save_plt(plts, "myc-urbanski_correlation_vs_pertseq_activity_diff-scatter", '.pdf', figs_dir, width=4, height=6)
     
     save_plt(plts, "cardoso-differentiation_vs_hallmarks-line", '.pdf', figs_dir, width=15, height=15)
-    save_plt(plts, "cardoso-differentiation_vs_hallmarks-myc_only-line", '.pdf', figs_dir, width=11, height=6)
+    save_plt(plts, "cardoso-differentiation_vs_hallmarks-myc_only-line", '.pdf', figs_dir, width=9, height=6)
+    save_plt(plts, "cardoso-differentiation_vs_hallmarks-others_only-line", '.pdf', figs_dir, width=11, height=6)
 }
 
 
@@ -1182,6 +1205,7 @@ main = function(){
         filter(tissue %in% TISSUES)
     
     cardoso_hallmarks = cardoso_hallmarks %>%
+        left_join(cardoso_hallmarks_nomyc, by=c("Description","sampleID"), suffix=c("","_nomyc")) %>%
         left_join(cardoso_metadata, by="sampleID")
     
     # plot
