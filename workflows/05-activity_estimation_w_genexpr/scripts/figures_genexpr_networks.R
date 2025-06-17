@@ -134,8 +134,8 @@ parseargs = function(){
     
     option_list = list( 
         make_option("--splicing_factors_file", type="character"),
-        make_option("--networks_viper_alone_dir", type="character"),
-        make_option("--networks_new_w_viper_dir", type="character"),
+        make_option("--networks_bulk_dir", type="character"),
+        make_option("--networks_singlecell_dir", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -148,8 +148,8 @@ main = function(){
     args = parseargs()
     
     splicing_factors_file = args[["splicing_factors_file"]]
-    networks_viper_alone_dir = args[["networks_viper_alone_dir"]]
-    networks_new_w_viper_dir = args[["networks_new_w_viper_dir"]]
+    networks_bulk_dir = args[["networks_bulk_dir"]]
+    networks_singlecell_dir = args[["networks_singlecell_dir"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)

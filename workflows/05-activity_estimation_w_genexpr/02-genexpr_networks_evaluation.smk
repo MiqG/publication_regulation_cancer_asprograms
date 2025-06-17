@@ -86,7 +86,7 @@ rule all:
         os.path.join(RESULTS_DIR,"files","network_evaluation_scores","merged.tsv.gz"),
         
         # figures
-        # os.path.join(RESULTS_DIR,"figures","network_evaluation")
+        os.path.join(RESULTS_DIR,"figures","network_evaluation")
         
 
 rule evaluate_regulons:

@@ -9,6 +9,8 @@ Outputs in `results/activity_estimation_w_genexpr/files` and `results/activity_e
     - bulk transcriptomics: Rogalska2024 (analyzed in this study) and AngladaGirotto2024
     - single-cell transcriptomics: Perturb-seq
     
-- `02-activity_modeling.smk`: computes exon inclusion and gene expression signatures of CCLE data to train different shallow ANNs to adjust splicing factor activities estimated from gene expression signatures to match those estimated from exon-inclusion signatures.
+- `02-genexpr_networks_evaluation.smk`: performs leave-one-out network evaluation to benchmark the predictive power of exon-based and gene-based networks at predicting which splicing factor had been perturbed in held-out experiments (not used to create splicing factor networks for estimating splicing factor activities).
 
-- `03-eval_carcinogenesis.smk`: estimate splicing factor activities using exon inclusion signatures, gene expression signatures and different adjustments in a bulk (Danielsson2019) and single-cell (Hodis2022) carcinogenesis dataset.
+- `03-activity_modeling.smk`: computes exon inclusion and gene expression signatures of CCLE data to train different shallow ANNs to adjust splicing factor activities estimated from gene expression signatures to match those estimated from exon-inclusion signatures.
+
+- `04-eval_carcinogenesis.smk`: estimate splicing factor activities using exon inclusion signatures, gene expression signatures and different adjustments in a bulk (Danielsson2019) and single-cell (Hodis2022) carcinogenesis dataset.

@@ -136,6 +136,7 @@ parseargs = function(){
     
     option_list = list( 
         make_option("--losses_file", type="character"),
+        make_option("--program_correlations_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -148,6 +149,7 @@ main = function(){
     args = parseargs()
     
     losses_file = args[["losses_file"]]
+    program_correlations_file = args[["program_correlations_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)

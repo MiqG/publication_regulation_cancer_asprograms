@@ -41,7 +41,10 @@ rule all:
         expand(os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-{omic_type}"), omic_type=OMIC_TYPES),
         
         # combine bulk and single cell
-        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-bulkscgenexpr")
+        os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-bulkscgenexpr"),
+        
+        # figures
+        os.path.join(RESULTS_DIR,"figures","genexpr_networks")
         
         
 rule make_regulons:
@@ -220,3 +223,20 @@ rule combine_regulons:
                     subprocess.call(cmd)
         
         print("Done!")
+        
+        
+rule make_figures:
+    input:
+        splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
+        networks_bulk_dir = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-bulkgenexpr"),
+        networks_singlecell_dir = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-scgenexpr"),
+    output:
+        figs_dir = os.path.join(RESULTS_DIR,"figures","genexpr_networks")
+    shell:
+        """
+        Rscript scripts/figures_genexpr_networks.R \
+                    --splicing_factors_file={input.splicing_factors} \
+                    --networks_bulk_dir={input.networks_bulk_dir} \
+                    --networks_singlecell_dir={input.networks_singlecell_dir} \
+                    --figs_dir={output}
+        """
