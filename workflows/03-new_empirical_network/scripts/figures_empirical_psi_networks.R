@@ -199,6 +199,11 @@ parseargs = function(){
         make_option("--splicing_factors_file", type="character"),
         make_option("--networks_viper_alone_dir", type="character"),
         make_option("--networks_new_w_viper_dir", type="character"),
+        make_option("--encore_metadata_file", type="character"),
+        make_option("--encore_ex_file", type="character"),
+        make_option("--encore_alta_file", type="character"),
+        make_option("--encore_altd_file", type="character"),
+        make_option("--encore_int_file", type="character"),
         make_option("--figs_dir", type="character")
     )
 
@@ -213,6 +218,11 @@ main = function(){
     splicing_factors_file = args[["splicing_factors_file"]]
     networks_viper_alone_dir = args[["networks_viper_alone_dir"]]
     networks_new_w_viper_dir = args[["networks_new_w_viper_dir"]]
+    encore_metadata_file = args[["encore_metadata_file"]]
+    encore_ex_file = args[["encore_ex_file"]]
+    encore_alta_file = args[["encore_alta_file"]]
+    encore_altd_file = args[["encore_altd_file"]]
+    encore_int_file = args[["encore_int_file"]]
     figs_dir = args[["figs_dir"]]
     
     dir.create(figs_dir, recursive = TRUE)

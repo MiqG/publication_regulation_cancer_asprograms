@@ -275,7 +275,11 @@ rule figures_cancer_splicing_program:
     input:
         diff_activity = os.path.join(RESULTS_DIR,'files','PANCAN','protein_activity-mannwhitneyu-PrimaryTumor_vs_SolidTissueNormal.tsv.gz'),
         splicing_factors = os.path.join(RESULTS_DIR,"figures","empirical_psi_networks","figdata","eda","splicing_factors.tsv.gz"),
-        gene_annotation = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+        gene_annotation = os.path.join(RAW_DIR,"HGNC","gene_annotations.tsv.gz"),
+        program_activity_diff = os.path.join(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz'),
+        metadata = os.path.join(RAW_DIR,'UCSCXena','TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.tsv'),
+        mutations = os.path.join(RAW_DIR,'UCSCXena','TCGA','snv','mc3.v0.2.8.PUBLIC.xena.gz'),
+        driver_types = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz'),
     output:
         directory(os.path.join(RESULTS_DIR,"figures","cancer_splicing_program"))
     shell:
@@ -284,6 +288,9 @@ rule figures_cancer_splicing_program:
                     --diff_activity_file={input.diff_activity} \
                     --splicing_factors_file={input.splicing_factors} \
                     --gene_annotation_file={input.gene_annotation} \
-                    --splicing_factors_file={input.splicing_factors} \
+                    --program_activity_diff_file={input.program_activity_diff} \
+                    --metadata_file={input.metadata} \
+                    --mutations_file={input.mutations} \
+                    --driver_types_file={input.driver_types} \
                     --figs_dir={output}
         """

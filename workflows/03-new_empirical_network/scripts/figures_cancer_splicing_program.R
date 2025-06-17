@@ -34,10 +34,12 @@ PAL_DRIVER_TYPE = c(
 # splicing_factors_file = file.path(SUPPORT_DIR,"splicing_factors","splicing_factors.tsv")
 # splicing_factors_file = file.path(RESULTS_DIR,"figures","empirical_psi_networks","figdata","eda","splicing_factors.tsv.gz")
 # gene_annotation_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
+
 # program_activity_diff_file = file.path(RESULTS_DIR,"files","protein_activity",'PANCAN-PrimaryTumor_vs_SolidTissueNormal-program_activity_diff.tsv.gz')
 # metadata_file = file.path(RAW_DIR,'UCSCXena','TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.tsv')
 # mutations_file = file.path(RAW_DIR,'UCSCXena','TCGA','snv','mc3.v0.2.8.PUBLIC.xena.gz')
 # driver_types_file = file.path(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+
 # figs_dir = file.path(RESULTS_DIR,"figures","cancer_splicing_program")
 
 ##### FUNCTIONS #####

@@ -108,7 +108,10 @@ rule figures_tumorigenesis:
         metadata = os.path.join(DATASET_DIR,"metadata","tumorigenesis.tsv.gz"),
         genexpr = os.path.join(DATASET_DIR,"genexpr_tpm","tumorigenesis.tsv.gz"),
         protein_activity = os.path.join(RESULTS_DIR,"files","protein_activity","carcinogenesis-EX.tsv.gz"),
-        driver_types = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz')
+        driver_types = os.path.join(RESULTS_DIR,'files','PANCAN','cancer_program.tsv.gz'),
+        event_info = os.path.join(SUPPORT_DIR,"supplementary_tables","supdata01_event_prior_knowledge.txt"),
+        regulons_dir = os.path.join(ROOT,"results","new_empirical_network","files","experimentally_derived_regulons_pruned_w_viper_networks-EX"),
+        msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
     output:
         directory(os.path.join(RESULTS_DIR,"figures","carcinogenesis"))
     shell:
@@ -118,5 +121,8 @@ rule figures_tumorigenesis:
                     --protein_activity_file={input.protein_activity} \
                     --metadata_file={input.metadata} \
                     --driver_types_file={input.driver_types} \
+                    --event_info_file={input.event_info} \
+                    --regulons_dir={input.regulons_dir} \
+                    --msigdb_dir={input.msigdb_dir} \
                     --figs_dir={output}
         """

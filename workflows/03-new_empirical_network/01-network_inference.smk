@@ -194,7 +194,12 @@ rule figures_empirical_psi_networks:
     input:
         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
         networks_viper_alone_dir = os.path.join(RESULTS_DIR,"files","viper_networks-EX"),
-        networks_new_w_viper_dir = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX")
+        networks_new_w_viper_dir = os.path.join(RESULTS_DIR,"files","experimentally_derived_regulons_pruned_w_viper_networks-EX"),
+        encore_metadata = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","benchmark","metadata_encorekd.tsv.gz"),
+        encore_ex = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","benchmark","psi_ex_encorekd.tsv.gz"),
+        encore_alta = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","benchmark","psi_alta_encorekd.tsv.gz"),
+        encore_altd = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","benchmark","psi_altd_encorekd.tsv.gz"),
+        encore_int = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","benchmark","psi_int_encorekd.tsv.gz"),
     output:
         directory(os.path.join(RESULTS_DIR,"figures","empirical_psi_networks"))
     shell:
@@ -202,6 +207,10 @@ rule figures_empirical_psi_networks:
         Rscript scripts/figures_empirical_psi_networks.R \
                         --splicing_factors_file={input.splicing_factors} \
                         --networks_viper_alone_dir={input.networks_viper_alone_dir} \
-                        --networks_new_w_viper_dir={input.networks_new_w_viper_dir} \
+                        --encore_metadata_file={input.encore_metadata} \
+                        --encore_ex_file={input.encore_ex} \
+                        --encore_alta_file={input.encore_alta} \
+                        --encore_altd_file={input.encore_altd} \
+                        --encore_int_file={input.encore_int} \
                         --figs_dir={output}
         """
