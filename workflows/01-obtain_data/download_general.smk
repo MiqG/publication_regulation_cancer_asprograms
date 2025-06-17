@@ -5,6 +5,7 @@ import numpy as np
 # variables
 ROOT = os.path.dirname(os.path.dirname(os.getcwd()))
 RAW_DIR = os.path.join(ROOT,"data","raw")
+XENA_DIR = os.path.join(RAW_DIR,'UCSCXena')
 
 # parameters
 SAVE_PARAMS = {"sep":"\t", "index":False, "compression":"gzip"}
@@ -26,7 +27,12 @@ rule all:
         os.path.join(RAW_DIR,"STRINGDB",'9606.protein.aliases.v11.5.txt.gz'),
         
         # preprocessed files from Anglada-Girotto2024
-        os.path.join(RAW_DIR,"viper_splicing_intermediate_files")
+        os.path.join(RAW_DIR,"viper_splicing_intermediate_files"),
+        
+        # TCGA
+        os.path.join(XENA_DIR,'TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.gz'),
+        os.path.join(XENA_DIR,'TCGA','snv','mc3.v0.2.8.PUBLIC.xena.gz')
+        
         
         
 rule download_hgnc:
@@ -111,4 +117,18 @@ rule download_viper_intermediate_files:
         
         echo Done!
         """
-        
+
+rule download_ucscxena_tcga_pancan:
+    output:
+        snv = os.path.join(XENA_DIR,'TCGA','snv','mc3.v0.2.8.PUBLIC.xena.gz'),
+        clinical = os.path.join(XENA_DIR,'TCGA','phenotype','Survival_SupplementalTable_S1_20171025_xena_sp.gz')
+    params:
+        snv = 'https://tcga-pancan-atlas-hub.s3.us-east-1.amazonaws.com/latest/mc3.v0.2.8.PUBLIC.xena.gz',
+        clinical = 'https://tcga-pancan-atlas-hub.s3.us-east-1.amazonaws.com/latest/Survival_SupplementalTable_S1_20171025_xena_sp.gz'
+    shell:
+        """
+        wget --user-agent="Chrome" --no-clobber --no-check-certificate {params.snv} -O {output.snv}
+        wget --user-agent="Chrome" --no-clobber --no-check-certificate {params.clinical} -O {output.clinical}
+
+        echo Done!
+        """
