@@ -141,7 +141,7 @@ rule figures_upstream_regulators:
         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
         shortest_paths_pert_sfs = os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors.tsv.gz'),
         shortest_paths_random = os.path.join(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz'),
-        ppi_network = os.path.join(PREP_DIR,'ppi','STRINGDB.tsv.gz')
+        ppi_network = os.path.join(PREP_DIR,'ppi','STRINGDB.tsv.gz'),
     output:
         directory(os.path.join(RESULTS_DIR,"figures","upstream_regulators"))
     shell:

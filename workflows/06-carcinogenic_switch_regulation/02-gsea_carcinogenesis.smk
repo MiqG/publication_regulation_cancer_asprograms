@@ -86,15 +86,18 @@ rule figures_gsea_carcinogenesis:
         carcinogenesis_bulk_genexpr = os.path.join(VIPER_SPLICING_DIR,'genexpr_tpm','tumorigenesis.tsv.gz'),
         carcinogenesis_bulk_activity = os.path.join(CARCINOGENESIS_BULK_DIR,"figures","carcinogenesis","figdata","carcinogenesis","protein_activity.tsv.gz"),
         carcinogenesis_bulk_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks.tsv.gz"),
+        carcinogenesis_bulk_hallmarks_nomyc = os.path.join(RESULTS_DIR,"files","gsea","tumorigenesis-genexpr-hallmarks_nomyc.tsv.gz"),
         carcinogenesis_bulk_metadata = os.path.join(VIPER_SPLICING_DIR,"metadata","tumorigenesis.tsv.gz"),
         
         carcinogenesis_singlecell_genexpr = os.path.join(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-pseudobulk.tsv.gz"),
         carcinogenesis_singlecell_activity = os.path.join(CARCINOGENESIS_SC_DIR,"figures","eval_carcinogenesis","figdata","eval_carcinogenesis","protein_activity_singlecell.tsv.gz"),
         carcinogenesis_singlecell_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks.tsv.gz"),
+        carcinogenesis_singlecell_hallmarks_nomyc = os.path.join(RESULTS_DIR,"files","gsea","Hodis2022-invitro_eng_melanoc-hallmarks_nomyc.tsv.gz"),
         carcinogenesis_singlecell_metadata = os.path.join(PREP_DIR,"singlecell","Hodis2022-invitro_eng_melanoc-conditions.tsv.gz"),
         
         pertseq_activity = os.path.join(RESULTS_DIR,"figures","upstream_regulators","figdata","upstream_regulators","cancer_program_activity.tsv.gz"),
         pertseq_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz"),
+        pertseq_hallmarks_nomyc = os.path.join(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks_nomyc.tsv.gz"),
         pertseq_genexpr = os.path.join(PREP_DIR,"pert_transcriptomes","ReplogleWeissman2022_rpe1-pseudobulk_across_batches-log2_fold_change_cpm.tsv.gz"),
         
         urbanski_metadata = os.path.join(PREP_DIR,"metadata","Urbanski2022.tsv.gz"),
@@ -102,7 +105,12 @@ rule figures_gsea_carcinogenesis:
         urbanski_ex = os.path.join(PREP_DIR,'event_psi',"Urbanski2022-EX.tsv.gz"),
         urbanski_activity = os.path.join(RESULTS_DIR,"files","protein_activity","Urbanski2022-EX.tsv.gz"),
         urbanski_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks.tsv.gz"),
+        urbanski_hallmarks_nomyc = os.path.join(RESULTS_DIR,"files","gsea","Urbanski2022-hallmarks_nomyc.tsv.gz"),
         
+        cardoso_metadata = os.path.join(RAW_DIR,"viper_splicing_intermediate_files","datasets","metadata","CardosoMoreira2020.tsv.gz"),
+        cardoso_hallmarks = os.path.join(RESULTS_DIR,"files","gsea","CardosoMoreira2020-hallmarks.tsv.gz"),
+        cardoso_hallmarks_nomyc = os.path.join(RESULTS_DIR,"files","gsea","CardosoMoreira2020-hallmarks_nomyc.tsv.gz"),
+
         msigdb_dir = os.path.join(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs"),
         chea = os.path.join(RAW_DIR,"Harmonizome","CHEA-TranscriptionFactorTargets.gmt.gz"),
         splicing_factors = os.path.join(SUPPORT_DIR,"supplementary_tables","splicing_factors.tsv"),
@@ -116,19 +124,26 @@ rule figures_gsea_carcinogenesis:
                     --carcinogenesis_bulk_genexpr_file={input.carcinogenesis_bulk_genexpr} \
                     --carcinogenesis_bulk_activity_file={input.carcinogenesis_bulk_activity} \
                     --carcinogenesis_bulk_hallmarks_file={input.carcinogenesis_bulk_hallmarks} \
+                    --carcinogenesis_bulk_hallmarks_nomyc_file={input.carcinogenesis_bulk_hallmarks_nomyc} \
                     --carcinogenesis_bulk_metadata_file={input.carcinogenesis_bulk_metadata} \
                     --carcinogenesis_singlecell_genexpr_file={input.carcinogenesis_singlecell_genexpr} \
                     --carcinogenesis_singlecell_activity_file={input.carcinogenesis_singlecell_activity} \
                     --carcinogenesis_singlecell_hallmarks_file={input.carcinogenesis_singlecell_hallmarks} \
+                    --carcinogenesis_singlecell_hallmarks_nomyc_file={input.carcinogenesis_singlecell_hallmarks_nomyc} \
                     --carcinogenesis_singlecell_metadata_file={input.carcinogenesis_singlecell_metadata} \
                     --pertseq_activity_file={input.pertseq_activity} \
                     --pertseq_hallmarks_file={input.pertseq_hallmarks} \
+                    --pertseq_hallmarks_nomyc_file={input.pertseq_hallmarks_nomyc} \
                     --pertseq_genexpr_file={input.pertseq_genexpr} \
                     --urbanski_metadata_file={input.urbanski_metadata} \
                     --urbanski_genexpr_file={input.urbanski_genexpr} \
                     --urbanski_ex_file={input.urbanski_ex} \
                     --urbanski_activity_file={input.urbanski_activity} \
                     --urbanski_hallmarks_file={input.urbanski_hallmarks} \
+                    --urbanski_hallmarks_nomyc_file={input.urbanski_hallmarks_nomyc} \
+                    --cardoso_metadata_file={input.cardoso_metadata} \
+                    --cardoso_hallmarks_file={input.cardoso_hallmarks} \
+                    --cardoso_hallmarks_nomyc_file={input.cardoso_hallmarks_nomyc} \
                     --msigdb_dir={input.msigdb_dir} \
                     --chea_file={input.chea} \
                     --splicing_factors_file={input.splicing_factors} \

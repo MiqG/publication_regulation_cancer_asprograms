@@ -69,9 +69,6 @@ PAL_GENE_TYPE = c(
 # shortest_paths_random_file = file.path(RESULTS_DIR,'files','ppi','shortest_path_lengths_to_pert_splicing_factors_random.tsv.gz')
 # ppi_network_file = file.path(PREP_DIR,'ppi','STRINGDB.tsv.gz')
 
-# gsea_hallmarks_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-hallmarks.tsv.gz")
-# gsea_reactome_file = file.path(RESULTS_DIR,"files","gsea","ReplogleWeissman2022_rpe1-reactome.tsv.gz")
-
 ##### FUNCTIONS #####
 load_ontologies = function(msigdb_dir, cosmic_genes_file){
     ontologies = list(
@@ -687,6 +684,8 @@ parseargs = function(){
         make_option("--splicing_factors_file", type="character"),
         make_option("--shortest_paths_pert_sfs_file", type="character"),
         make_option("--shortest_paths_random_file", type="character"),
+        make_option("--ppi_network_file", type="character"),
+        make_option("--ppi_network_file", type="character"),
         make_option("--ppi_network_file", type="character"),
         make_option("--figs_dir", type="character")
     )

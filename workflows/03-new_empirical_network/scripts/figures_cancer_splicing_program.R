@@ -480,6 +480,10 @@ parseargs = function(){
         make_option("--diff_activity_file", type="character"),
         make_option("--splicing_factors_file", type="character"),
         make_option("--gene_annotation_file", type="character"),
+        make_option("--program_activity_diff_file", type="character"),
+        make_option("--metadata_file", type="character"),
+        make_option("--mutations_file", type="character"),
+        make_option("--driver_types_file", type="character"),
         make_option("--figs_dir", type="character"),
         make_option("--random_seed", type="integer", default=1234)
     )
@@ -495,6 +499,10 @@ main = function(){
     diff_activity_file = args[["diff_activity_file"]]
     splicing_factors_file = args[["splicing_factors_file"]]
     gene_annotation_file = args[["gene_annotation_file"]]
+    program_activity_diff_file = args[["program_activity_diff_file"]]
+    metadata_file = args[["metadata_file"]]
+    mutations_file = args[["mutations_file"]]
+    driver_types_file = args[["driver_types_file"]]
     figs_dir = args[["figs_dir"]]
     random_seed = args[["random_seed"]]
     
