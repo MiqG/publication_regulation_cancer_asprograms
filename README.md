@@ -91,4 +91,14 @@ Please, report any issues here: https://github.com/MiqG/publication_regulation_c
 
 
 ## Citation
-(TODO)
+```
+@article{anglada2025using,
+  title={Using single-cell perturbation screens to decode the regulatory architecture of splicing factor programs},
+  author={Anglada-Girotto, Miquel and Miravet-Verde, Samuel and Serrano, Luis},
+  journal={bioRxiv},
+  pages={2025--02},
+  year={2025},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
+URL: https://www.biorxiv.org/content/10.1101/2025.02.07.637061v1.full
