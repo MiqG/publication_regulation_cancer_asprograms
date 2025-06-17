@@ -1,4 +1,4 @@
-# Decoding the regulatory architecture of splicing factor programs through single-cell perturbation screens
+# Using single-cell perturbation screens to decode the regulatory architecture of splicing factor programs
 
 Adapting splicing factor activity analysis to gene expression signatures to study the regulation of splicing factors from single-cell Perturb-seq screens.
 
