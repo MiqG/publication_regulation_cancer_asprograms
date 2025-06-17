@@ -1,12 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquelangladagirotto [at] gmail [dot] com
-#
-# Script purpose
-# --------------
-# For each drug, measure the shortest path length from each of its targets
-# to each of the genes significantly associated to the drug sensitivity profile
-
 import argparse
 import pandas as pd
 import numpy as np

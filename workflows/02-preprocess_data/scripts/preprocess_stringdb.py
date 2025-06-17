@@ -1,11 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquelangladagirotto [at] gmail [dot] com
-#
-# Script purpose
-# --------------
-# Preprocess and clean CCLE data based on Goncalves 2020 (https://github.com/EmanuelGoncalves/dtrace/blob/a81e379e6ca511cc013aa25b0c7309f8fd0a5f16/dtrace/DataImporter.py#L481)
-
 import argparse
 import pandas as pd
 import networkx as nx

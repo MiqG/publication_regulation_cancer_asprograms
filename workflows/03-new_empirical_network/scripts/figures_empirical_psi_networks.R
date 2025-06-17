@@ -1,12 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquel [dot] anglada [at] crg [dot] eu
-#
-# Script purpose
-# --------------
-# make figures of evaluate target inference algorithms.
-# median accuracy of 0.973 and 0.975 in HepG2 and K562 with threshold of 0.2
-
 require(optparse)
 require(tidyverse)
 require(ggpubr)

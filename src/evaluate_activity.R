@@ -5,19 +5,6 @@ require(viper)
 require(pROC)
 require(clusterProfiler)
 
-# Development
-# -----------
-# ROOT = here::here()
-# PREP_DIR = file.path(ROOT,"data","prep")
-# RESULTS_DIR = file.path(ROOT,"results","regulon_inference")
-# signature_file="~/projects/publication_regulation_cancer_asprograms/data/raw/viper_splicing_intermediary_files/benchmark/signatures_tpm_encorekd_hepg2.tsv.gz"
-# regulons_path="~/projects/publication_regulation_cancer_asprograms/results/network_inference/files/experimentally_derived_regulons_pruned-scgenexpr"
-# eval_labels_file="~/projects/publication_regulation_cancer_asprograms/results/network_inference/files/regulon_evaluation_labels/ENCOREKD_HepG2.tsv.gz"
-# shadow_correction = "no"
-# n_tails = "two"
-# method_activity = "viper"
-# precomputed_activity_file = NULL
-
 ##### FUNCTIONS #####
 as_regulon_network = function(regulons){
 

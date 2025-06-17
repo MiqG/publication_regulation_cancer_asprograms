@@ -7,21 +7,6 @@ from vipersp.model import EWlayer, FClayer
 # variables
 SAVE_PARAMS = {"sep": "\t", "index": False, "compression": "gzip"}
 
-"""
-Development
------------
-import os
-ROOT = '/home/miquel/projects/publication_regulation_cancer_asprograms'
-RAW_DIR = os.path.join(ROOT,'data','raw')
-PREP_DIR = os.path.join(ROOT,"data","prep")
-RESULTS_DIR = os.path.join(ROOT,"results","activity_estimation_w_genexpr")
-
-activity_file = os.path.join(RESULTS_DIR,"files","protein_activity","CCLE-bulkscgenexpr.tsv.gz")
-weights_files = ",".join([os.path.join(RESULTS_DIR,"files","model_sf_activity","from_bulkscgenexpr_to_EX","fclayer","weights-{k}.pth").format(k=k) for k in range(5)])
-common_regulators_file = os.path.join(RESULTS_DIR,"files","model_sf_activity","from_bulkscgenexpr_to_EX","fclayer","common_regulators.tsv.gz")
-model_type = "fclayer"
-"""
-
 ##### FUNCTIONS #####
 def parse_args():
     parser = argparse.ArgumentParser()

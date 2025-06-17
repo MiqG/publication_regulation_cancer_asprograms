@@ -1,12 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquelangladagirotto [at] gmail [dot] com
-# Last Update: 2021-01-13
-#
-# Purpose
-# -------
-# Read and preprocess files
-
 import pandas as pd
 
 def auc_split_point(arr):

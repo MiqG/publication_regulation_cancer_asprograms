@@ -1,26 +1,8 @@
-# Note
-# ----
-# WE ARE RUNNING METAVIPER!
-
 Sys.setenv(VROOM_CONNECTION_SIZE='100000000')
 require(optparse)
 require(tidyverse)
 require(clusterProfiler)
 require(BiocParallel)
-
-# Development
-# -----------
-# ROOT = here::here()
-# RAW_DIR = file.path(ROOT,'data','raw')
-# PREP_DIR = file.path(ROOT,"data","prep")
-# RESULTS_DIR = file.path(ROOT,"results","regulon_inference")
-# signature_file = file.path(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'log2_fold_change_tpm.tsv.gz')
-# signature_file = "~/projects/publication_regulation_cancer_asprograms/results/network_inference/files/signatures/Hodis2022-invitro_eng_melanoc-genexpr.tsv.gz"
-# msigdb_dir = file.path(RAW_DIR,"MSigDB","msigdb_v7.4","msigdb_v7.4_files_to_download_locally","msigdb_v7.4_GMTs")
-# gene_info_file = file.path(RAW_DIR,"HGNC","gene_annotations.tsv.gz")
-# random_seed = 1234
-# ontology_oi = "hallmarks"
-# n_jobs = 4
 
 ##### FUNCTIONS #####
 load_ontologies = function(msigdb_dir, cosmic_genes_file){

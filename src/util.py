@@ -1,11 +1,3 @@
-#
-# Author: Miquel Anglada Girotto
-# Contact: miquelangladagirotto [at] gmail [dot] com
-#
-# Script purpose
-# --------------
-# utilities for general scripting and file processing.
-
 import os
 import uuid
 import shutil

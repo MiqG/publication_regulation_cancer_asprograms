@@ -3,20 +3,6 @@ require(optparse)
 require(tidyverse)
 require(viper)
 
-# Development
-# -----------
-# ROOT = here::here()
-# PREP_DIR = file.path(ROOT,"data","prep")
-# RESULTS_DIR = file.path(ROOT,"results","regulon_inference")
-# signature_file = file.path(PREP_DIR,'ground_truth_pert','ENCOREKO',"HepG2",'log2_fold_change_tpm.tsv.gz')
-# signature_file = file.path(PREP_DIR,'ground_truth_pert','ENCOREKO',"K562",'delta_psi-EX.tsv.gz')
-# regulons_path = file.path(RESULTS_DIR,"files","mlr_and_experimental_regulons-genexpr")
-# regulons_path = file.path(RESULTS_DIR,"files","aracne_and_experimental_regulons-genexpr")
-# regulons_path = file.path(RESULTS_DIR,"files","experimentally_derived_regulons_pruned-EX")
-# eval_labels_file = file.path(RESULTS_DIR,"files","regulon_evaluation_labels","ENCOREKO_HepG2.tsv.gz")
-# shadow_correction = "no"
-# n_tails = "two"
-
 ##### FUNCTIONS #####
 as_regulon_network = function(regulons){
 
